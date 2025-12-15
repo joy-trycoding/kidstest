@@ -115,10 +115,22 @@
         // 設定 Firebase Debug Log
         setLogLevel('Debug');
 
-        // --- Global Variables (Canvas Environment) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { /* Mock Config if running locally */ };
+        // --- Global Variables (Canvas Environment Fallback) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'autonomy-helper-mock-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Firebase Config (已由使用者提供並填入)
+        const MOCK_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDZ6A9haTwY6dCa93Tsa1X63ehzx-xe_FE", 
+            authDomain: "kidstest-99c7f.firebaseapp.com",
+            projectId: "kidstest-99c7f", 
+            storageBucket: "kidstest-99c7f.firebasestorage.app", 
+            messagingSenderId: "4719977826", 
+            appId: "1:4719977826:web:e002e7b9b2036d3b39383b",
+            measurementId: "G-Z6VT9G5JR9"
+        };
+        
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : MOCK_FIREBASE_CONFIG;
 
         let app;
         let db;
@@ -220,6 +232,9 @@
         ];
 
         async function preloadInitialData() {
+            // 只有當 Firebase/Firestore 正確初始化後才能執行
+            if (!db) return;
+
             const taskQuery = await getDocs(getTaskCollectionRef());
             const rewardQuery = await getDocs(getRewardCollectionRef());
             const batch = writeBatch(db);
@@ -1019,14 +1034,16 @@
 
         async function initApp() {
             try {
+                // 配置已完成，直接初始化
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // 執行登入
+                // 執行登入：優先使用 Canvas Token，否則使用匿名登入
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
+                    // 在本機或 GitHub 環境中會走這一步
                     await signInAnonymously(auth);
                 }
 
@@ -1043,13 +1060,13 @@
                     } else {
                         // 處理登出或未驗證狀態
                         state.isAuthReady = false;
-                        document.getElementById('loading-screen').innerHTML = `<p class="text-danger">認證失敗，請重新載入。</p>`;
+                        document.getElementById('loading-screen').innerHTML = `<p class="text-danger">認證失敗，請檢查 Firebase 配置或網路連線。</p>`;
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                document.getElementById('loading-screen').innerHTML = `<p class="text-danger">應用程式初始化失敗: ${error.message}</p>`;
+                document.getElementById('loading-screen').innerHTML = `<p class="text-danger">應用程式初始化失敗: ${error.message}。請檢查您的 Firebase 配置。</p>`;
             }
         }
 
