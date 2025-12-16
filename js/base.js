@@ -1,4 +1,4 @@
-// js/base.js (最終語法修正版)
+// js/base.js
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 // --- 全域狀態 (State) ---
-const state = { // 🚨 關鍵修正：移除 export 關鍵字，只在底部統一匯出
+const state = { 
     isAuthReady: false,
     kids: [], // 小朋友清單
     currentKidId: localStorage.getItem('currentKidId') || null, // 當前選定的小朋友 ID
@@ -82,7 +82,7 @@ const initialRewards = [
 // --- UI 輔助函式 (Toast & Modal) ---
 
 /** 顯示 Toast 提示訊息 */
-function showToast(message, type = 'success') { // 🚨 移除 export
+function showToast(message, type = 'success') { 
     const toastContainer = document.getElementById('toast-container');
     const bgColor = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-secondary';
     
@@ -118,7 +118,7 @@ function closeModal() {
 window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
 
 /** 顯示 Modal */
-function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 🚨 移除 export
+function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { 
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
@@ -146,7 +146,7 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
 // --- Kid Switch Functions ---
 
 /** 切換當前小朋友 (導出) */
-const switchKid = (kidId) => { // 🚨 移除 export
+const switchKid = (kidId) => { 
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
@@ -339,8 +339,8 @@ function initPage(pageRenderFunc, pageViewName) { // 🚨 移除 export
                         unsubscribeCheck();
                         if (loadingScreen) loadingScreen.classList.add('hidden');
                         if (content) {
-                            content.classList.remove('hidden');
-                            content.innerHTML = `<p class="text-xl font-bold text-danger">數據同步失敗，請檢查 Firestore 規則。</p>`;
+                             content.classList.remove('hidden');
+                             content.innerHTML = `<p class="text-xl font-bold text-danger">數據同步失敗，請檢查 Firestore 規則。</p>`;
                         }
                     });
 
@@ -351,8 +351,8 @@ function initPage(pageRenderFunc, pageViewName) { // 🚨 移除 export
                     if (loadingScreen) {
                         loadingScreen.classList.add('hidden');
                         if (content) {
-                            content.classList.remove('hidden');
-                            content.innerHTML = `
+                             content.classList.remove('hidden');
+                             content.innerHTML = `
                                 <div class="text-center p-10 bg-danger/10 rounded-3xl mt-8 shadow-inner border border-danger">
                                     <p class="text-3xl font-bold text-danger mb-4">🚫 Firebase 連線失敗</p>
                                     <p class="text-gray-700 font-medium">請確認您的 Firebase 專案已啟用 **匿名登入 (Anonymous)** 功能。</p>
@@ -382,7 +382,7 @@ function initPage(pageRenderFunc, pageViewName) { // 🚨 移除 export
 
 // --- 供其他檔案使用的匯出函式 (Exports) ---
 
-// 匯出常用的 Firestore 函式 (已在定義時未加 export 的，在這裡統一匯出)
+// 匯出常用的 Firestore 函式
 export { getFirestore, getDoc, setDoc, writeBatch, arrayUnion, getDocs, doc, collection };
 
 // 匯出功能函式和集合參考 (統一匯出，確保不重複)
@@ -397,5 +397,3 @@ export {
     getKidStateDocRef, 
     initPage 
 };
-
- 
