@@ -113,9 +113,10 @@ window.showEditKidModal = (kidId = null) => {
     `;
 
     // 關鍵修正：在新增模式下，傳遞 null 關鍵字 (不帶引號)，讓 JS 能夠解析
+    // 編輯模式下，傳遞帶引號的 ID 字串
     const idForSave = isEdit ? `'${kidId}'` : 'null'; 
     
-    // 使用 null 關鍵字，JS 會嘗試解析為 null，但 HTML 傳輸可能會轉為字串 "null"
+    // showModal 會在 saveKid 執行後調用 closeModal
     const saveButton = `
         <button onclick="saveKid(${idForSave})" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
     `;
@@ -145,6 +146,8 @@ window.saveKid = async (kidId = null) => {
         } else {
             // 如果 kidId 是 null，則執行新增
             await addDoc(getKidCollectionRef(), data);
+            // 由於新增小朋友後，數據會透過監聽器傳回，並觸發 renderSettingsContent
+            // 因此不需要手動呼叫 renderSettingsContent
             showToast('小朋友資料新增成功！');
         }
         closeModal();
@@ -176,7 +179,7 @@ window.deleteKid = window.deleteKid;
 
 // 任務/獎勵的共用儲存和刪除函式
 window.saveItem = async (type, data, itemId = null) => {
-    // 🌟 最終保險修正：將任何可能誤入的字串 "null" 或空字串轉為 null
+    // 🌟 最終保險修正
     if (typeof itemId === 'string' && (itemId.toLowerCase() === 'null' || itemId.trim() === '')) {
         itemId = null;
     }
@@ -247,7 +250,6 @@ window.showEditTaskModal = (taskId = null) => {
         </select>
     `;
 
-    // 關鍵修正：在新增模式下，傳遞 null 關鍵字
     const idForSave = isEdit ? `'${taskId}'` : 'null'; 
 
     const saveButton = `
@@ -286,7 +288,6 @@ window.showEditRewardModal = (rewardId = null) => {
         <input type="number" id="rewardCost" value="${reward.cost || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
     `;
 
-    // 關鍵修正：在新增模式下，傳遞 null 關鍵字
     const idForSave = isEdit ? `'${rewardId}'` : 'null'; 
 
     const saveButton = `

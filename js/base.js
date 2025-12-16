@@ -61,7 +61,7 @@ function getRewardCollectionRef() {
 function getKidStateDocRef(kidId) { 
     return doc(getUserArtifactsRef(), 'kid_states', kidId);
 }
-const getKidDocRef = getKidStateDocRef; // 兼容舊版匯入名稱
+const getKidDocRef = getKidStateDocRef; 
 
 // --- Data Preload ---
 const initialTasks = [
@@ -106,30 +106,53 @@ function showToast(message, type = 'success') {
 }
 
 /** 關閉 Modal (必須是全域函數供 HTML 按鈕調用) */
-function closeModal() { // 關鍵：定義時不使用 export
+function closeModal() {
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
+    // 確保元素存在
+    if (!modalContainer || !modalContent) return;
+
     modalContent.classList.add('scale-95', 'opacity-0');
 
     modalContent.addEventListener('transitionend', () => {
         modalContainer.classList.add('hidden');
     }, { once: true });
 }
-// window.closeModal = closeModal; // 移除全域導出，只保留模組導出
+window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
 
 /** 顯示 Modal */
 function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { 
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
+    // 1. 處理自定義按鈕內容
+    let buttonHtml;
+    if (confirmText.startsWith('<button')) {
+        // 如果傳入的是自定義按鈕 HTML，則直接使用，但不生成默認取消按鈕
+        buttonHtml = `
+            <div class="flex justify-end space-x-3">
+                <button onclick="window.closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition duration-150">取消</button>
+                ${confirmText} 
+            </div>
+        `;
+    } else {
+        // 否則，生成標準的確認和取消按鈕
+        const isDelete = confirmText === '刪除';
+        const confirmBtnClass = isDelete ? 'bg-danger' : 'bg-primary';
+        
+        buttonHtml = `
+            <div class="flex justify-end space-x-3">
+                <button onclick="window.closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition duration-150">取消</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 ${confirmBtnClass} text-white font-semibold rounded-xl hover:opacity-80 transition duration-150">${confirmText}</button>
+            </div>
+        `;
+    }
+
     modalContent.innerHTML = `
         <h3 class="text-2xl font-bold text-primary mb-4 border-b pb-2">${title}</h3>
         <div class="modal-body mb-6 text-gray-700">${bodyHtml}</div>
-        <div class="flex justify-end space-x-3">
-            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition duration-150">取消</button>
-            <button id="modal-confirm-btn" class="px-4 py-2 ${confirmText === '刪除' ? 'bg-danger' : 'bg-primary'} text-white font-semibold rounded-xl hover:opacity-80 transition duration-150">${confirmText}</button>
-        </div>
+        ${buttonHtml}
     `;
 
     modalContainer.classList.remove('hidden');
@@ -138,13 +161,19 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
         modalContent.classList.remove('scale-95', 'opacity-0');
     }, 10);
 
-    document.getElementById('modal-confirm-btn').onclick = () => {
-        onConfirm();
-        closeModal();
-    };
+    // 2. 附加事件監聽器給標準確認按鈕
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    if (confirmBtn) {
+        confirmBtn.onclick = () => {
+            onConfirm();
+            // 如果 onConfirm 邏輯沒有主動關閉，這裡執行關閉
+            if (onConfirm.toString().indexOf('closeModal') === -1) {
+                 window.closeModal();
+            }
+        };
+    }
 }
-// 確保 HTML 仍可使用 closeModal，但我們現在依賴於模組內部導出的 closeModal 
-// 在這個版本中，我們假設 HTML 中的 closeModal 呼叫會被 Modal 內嵌的 JS 處理
+
 
 // --- Kid Switch Functions ---
 
@@ -153,7 +182,11 @@ const switchKid = (kidId) => {
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
-    // 監聽器會自動觸發更新
+    // 關鍵修正：當 currentKidId 變化時，我們需要明確觸發 UI 更新
+    if (renderCallback) {
+        // 確保在下一個執行週期觸發，讓狀態更新生效
+        setTimeout(renderCallback, 50); 
+    }
 };
 window.switchKid = switchKid; // 確保 HTML 中 onclick 仍可呼叫
 
@@ -393,7 +426,7 @@ export {
     state, 
     showToast, 
     showModal, 
-    closeModal, // 🌟 確保 closeModal 在這裡被導出
+    closeModal, 
     switchKid, 
     getKidCollectionRef, 
     getTaskCollectionRef, 
