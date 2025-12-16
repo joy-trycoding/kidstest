@@ -1,114 +1,167 @@
 // js/tasks.js
+// Tasks page: show available tasks for the current kid and let user complete them safely.
+// Fixes:
+// - Do NOT import Firestore helpers (doc/setDoc) from base.js (base.js doesn't export them).
+// - Avoid writing to /kids/'null' by requiring a valid state.currentKidId.
+// - Use setDoc(..., {merge:true}) so the kid-state doc is created if it doesn't exist.
+// - Keep in-memory state.kidData in sync and re-render after completion.
 
-// 確保匯入了 setDoc (假設 base.js 已經匯出了它)
-import { getKidStateDocRef, state, showToast, showModal, initPage, setDoc, doc } from "./base.js"; 
-import { updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getKidStateDocRef, state, showToast, initPage } from "./base.js";
+import { setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-/** 渲染任務牆 (Tasks View) */
+/** Render tasks view */
 function renderTasksContent() {
-    const currentKid = state.kids.find(k => k.id === state.currentKidId);
-    const kidState = state.kidData[state.currentKidId] || { points: 0, lastTaskCompletion: {} };
-    const today = new Date().toDateString();
+  const viewContent = document.getElementById("view-content");
+  if (!viewContent) return;
 
-    const taskElements = state.tasks
-        .filter(task => {
-            // 必須先檢查 task 存在，以防資料同步問題
-            if (!task) return false; 
-            
-            if (task.cycle === 'daily') {
-                const lastCompletionDate = kidState.lastTaskCompletion[task.id] ? new Date(kidState.lastTaskCompletion[task.id]).toDateString() : null;
-                return lastCompletionDate !== today;
-            }
-            return true; 
-        })
-        .map(task => `
-            <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-lg mb-4 border-b-4 border-accent">
-                <div class="flex-1 min-w-0 mr-4">
-                    <p class="font-black text-xl text-primary truncate">${task.name}</p>
-                    <p class="text-sm text-gray-500 mt-1">${task.description}</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-secondary font-extrabold text-2xl whitespace-nowrap">+${task.points}</span>
-                    <button onclick="completeTask('${task.id}', ${task.points})" class="flex items-center justify-center w-12 h-12 bg-success text-white rounded-full shadow-2xl hover:bg-green-600 transition-transform active:scale-95 transform duration-150">
-                        <span class="text-2xl">🎉</span>
-                    </button>
-                </div>
-            </div>
-        `).join('');
+  const kidId = state.currentKidId;
+  const currentKid = (state.kids || []).find((k) => k.id === kidId) || null;
 
-    const kidNickname = currentKid?.nickname || '小朋友';
+  // Ensure local defaults
+  const kidState = (state.kidData && kidId && state.kidData[kidId]) ? state.kidData[kidId] : { points: 0, lastTaskCompletion: {} };
+  const lastCompletion = kidState.lastTaskCompletion || {};
 
-    const viewContent = document.getElementById('view-content');
-    if (!viewContent) return; 
-    
-    viewContent.innerHTML = `
-        <div class="p-4 bg-white rounded-xl shadow-md mb-6">
-            <p class="text-lg font-bold text-gray-800">當前小朋友：${kidNickname}</p>
-            <p class="text-xl font-extrabold text-secondary mt-1">點數: ${kidState.points || 0}</p>
+  const todayStr = new Date().toDateString();
+
+  const taskElements = (state.tasks || [])
+    .filter((task) => {
+      if (!task) return false;
+
+      // daily task: hide if completed today
+      if (task.cycle === "daily") {
+        const ts = lastCompletion[task.id];
+        const lastDate = ts ? new Date(ts).toDateString() : null;
+        return lastDate !== todayStr;
+      }
+      return true;
+    })
+    .map(
+      (task) => `
+      <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-lg mb-4 border-b-4 border-accent">
+        <div class="flex-1 min-w-0 mr-4">
+          <p class="font-black text-xl text-primary truncate">${escapeHtml(task.name || "")}</p>
+          <p class="text-sm text-gray-500 mt-1">${escapeHtml(task.description || "")}</p>
         </div>
+        <div class="flex items-center space-x-3">
+          <span class="text-secondary font-extrabold text-2xl whitespace-nowrap">+${Number(task.points ?? 0)}</span>
+          <button onclick="window.completeTask('${task.id}', ${Number(task.points ?? 0)})"
+            class="flex items-center justify-center w-12 h-12 bg-success text-white rounded-full shadow-2xl hover:bg-green-600 transition-transform active:scale-95 transform duration-150"
+            aria-label="完成任務">
+            <span class="text-2xl">🎉</span>
+          </button>
+        </div>
+      </div>
+    `
+    )
+    .join("");
 
-        <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌟 今日待辦任務</h2>
-        ${taskElements || '<div class="text-center p-8 bg-accent/20 rounded-2xl text-accent font-bold shadow-inner">太棒了！所有的任務都完成了，可以去領獎勵囉！</div>'}
-    `;
+  const kidNickname = currentKid?.nickname || "小朋友";
+
+  viewContent.innerHTML = `
+    <div class="p-4 bg-white rounded-xl shadow-md mb-6">
+      <p class="text-lg font-bold text-gray-800">當前小朋友：${escapeHtml(kidNickname)}</p>
+      <p class="text-xl font-extrabold text-secondary mt-1">點數: ${Number(kidState.points ?? 0)}</p>
+    </div>
+
+    <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌟 今日待辦任務</h2>
+    ${
+      taskElements ||
+      '<div class="text-center p-8 bg-accent/20 rounded-2xl text-accent font-bold shadow-inner">太棒了！所有的任務都完成了，可以去領獎勵囉！</div>'
+    }
+  `;
 }
 
-/** 任務完成 (導出給 HTML onclick 呼叫) */
+/** Complete a task (called from onclick) */
 window.completeTask = async (taskId, points) => {
-    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-    
-    const kidId = state.currentKidId;
-    const kidRef = getKidStateDocRef(kidId); 
-    
-    const now = Date.now();
-    const today = new Date().toDateString();
+  const kidId = state.currentKidId;
+  if (!kidId) {
+    showToast("請先選擇一位小朋友！", "danger");
+    return;
+  }
 
-    try {
-        const task = state.tasks.find(t => t.id === taskId);
-        const kidState = state.kidData[kidId] || { points: 0, lastTaskCompletion: {} }; // 確保 kidState 有默認值
+  const task = (state.tasks || []).find((t) => t && t.id === taskId);
+  if (!task) {
+    showToast("任務資料遺失，請重新整理頁面。", "danger");
+    console.error("Attempted to complete non-existent task:", taskId);
+    return;
+  }
 
-        // 🌟 關鍵修正：新增防禦性檢查，如果找不到任務，則直接返回
-        if (!task) {
-             showToast("任務資料遺失，請重新整理頁面。", 'danger');
-             console.error(`Attempted to complete non-existent task with ID: ${taskId}`);
-             return;
-        }
+  // Local defaults
+  if (!state.kidData) state.kidData = {};
+  const kidState = state.kidData[kidId] || { points: 0, lastTaskCompletion: {} };
+  const lastCompletion = kidState.lastTaskCompletion || {};
 
-        if (task.cycle === 'daily') {
-            const lastCompletionDate = kidState.lastTaskCompletion[taskId] ? new Date(kidState.lastTaskCompletion[taskId]).toDateString() : null;
-            if (lastCompletionDate === today) {
-                return showToast("這個每日任務今天已經完成了喔！", 'info');
-            }
-        }
+  const now = Date.now();
+  const todayStr = new Date().toDateString();
 
-        // 🌟 關鍵修正：使用 setDoc with merge: true，確保文件不存在時能創建，存在時能更新
-        await setDoc(kidRef, {
-            points: (kidState.points || 0) + points,
-            lastTaskCompletion: {
-                ...kidState.lastTaskCompletion,
-                [taskId]: now,
-            }
-        }, { merge: true });
-
-        showToast(`任務完成！獲得 ${points} 點！`, 'success');
-        
-        const newPoints = (kidState.points || 0) + points;
-        if (Math.floor(newPoints / 50) > Math.floor(kidState.points / 50)) {
-            showToast("恭喜！您獲得了一顆精靈蛋！🥚", 'success');
-        }
-
-    } catch (error) {
-        console.error("Error completing task:", error);
-        // 打印更詳細的錯誤信息
-        if (error.code === 'permission-denied') {
-             showToast("任務失敗：權限不足。請檢查 Firebase 安全規則。", 'danger');
-        } else {
-             showToast(`完成任務失敗: ${error.message}`, 'danger');
-        }
+  // Prevent double completion for daily tasks (client-side guard)
+  if (task.cycle === "daily") {
+    const ts = lastCompletion[taskId];
+    const lastDate = ts ? new Date(ts).toDateString() : null;
+    if (lastDate === todayStr) {
+      showToast("這個每日任務今天已經完成了喔！", "info");
+      return;
     }
-};
-// 確保全域可訪問
-window.completeTask = window.completeTask; 
+  }
 
-// 啟動邏輯
-initPage(renderTasksContent, 'tasks');
+  const addPoints = Number(points ?? 0) || 0;
+  const newPoints = Number(kidState.points ?? 0) + addPoints;
+
+  try {
+    const kidRef = getKidStateDocRef(kidId);
+
+    // Create or update safely
+    await setDoc(
+      kidRef,
+      {
+        points: newPoints,
+        lastTaskCompletion: {
+          ...lastCompletion,
+          [taskId]: now,
+        },
+      },
+      { merge: true }
+    );
+
+    // Sync local state to prevent UI flicker and support offline-ish UX
+    state.kidData[kidId] = {
+      ...kidState,
+      points: newPoints,
+      lastTaskCompletion: {
+        ...lastCompletion,
+        [taskId]: now,
+      },
+    };
+
+    showToast(`任務完成！獲得 ${addPoints} 點！`, "success");
+
+    // milestone toast (every 50 points)
+    if (Math.floor(newPoints / 50) > Math.floor(Number(kidState.points ?? 0) / 50)) {
+      showToast("恭喜！您獲得了一顆精靈蛋！🥚", "success");
+    }
+
+    // Re-render
+    renderTasksContent();
+  } catch (error) {
+    console.error("Error completing task:", error);
+    if (error?.code === "permission-denied") {
+      showToast("任務失敗：權限不足。請檢查 Firebase 安全規則。", "danger");
+    } else {
+      showToast(`完成任務失敗: ${error?.message || error}`, "danger");
+    }
+  }
+};
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+// Bootstrap
+initPage(renderTasksContent, "tasks");
+
 
