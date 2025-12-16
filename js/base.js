@@ -2,9 +2,13 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc, getDocs, writeBatch, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, writeBatch, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// --- Global Constants and Configuration (與原 script.js 相同) ---
+// 設定 Firebase Debug Log
+setLogLevel('Debug');
+
+// --- Global Constants and Configuration ---
 const appId = 'autonomy-helper-mock-id';
 const MOCK_FIREBASE_CONFIG = {
     apiKey: "AIzaSyDZ6A9haTwY6dCa93Tsa1X63ehzx-xe_FE", 
@@ -18,15 +22,15 @@ const MOCK_FIREBASE_CONFIG = {
 const firebaseConfig = MOCK_FIREBASE_CONFIG; 
 
 let app;
-let db;
-let auth;
+export let db;
+export let auth;
 export let userId = null; // 導出 userId
 
 // --- App State (導出供其他頁面使用) ---
 export const state = {
     isAuthReady: false,
     kids: [],
-    currentKidId: localStorage.getItem('currentKidId') || null, // 從 localStorage 載入
+    currentKidId: localStorage.getItem('currentKidId') || null, 
     tasks: [],
     rewards: [],
     kidData: {}, 
@@ -39,11 +43,27 @@ export const getTaskCollectionRef = () => collection(db, `artifacts/${appId}/use
 export const getRewardCollectionRef = () => collection(db, `artifacts/${appId}/users/${userId}/rewards`);
 export const getKidDocRef = (kidId) => doc(db, `artifacts/${appId}/users/${userId}/kid_state/${kidId}`);
 
-// --- 共用 UI 函式 (導出供其他頁面使用) ---
+// --- Data Preload ---
+const initialTasks = [
+    { name: "準時上床", description: "晚上 9 點前刷牙換睡衣並躺在床上。", points: 10, cycle: "daily" },
+    { name: "整理玩具", description: "自己將玩完的玩具物歸原位。", points: 15, cycle: "daily" },
+    { name: "協助家務", description: "幫忙把洗好的衣服拿到房間放好。", points: 30, cycle: "once" },
+    { name: "閱讀時光", description: "每天至少閱讀一本書 15 分鐘。", points: 10, cycle: "daily" },
+    { name: "禮貌表達", description: "對長輩說「請、謝謝、對不起」。", points: 5, cycle: "daily" }
+];
+
+const initialRewards = [
+    { name: "週末甜點", description: "換取一次晚餐後的冰淇淋或小蛋糕。", cost: 150 },
+    { name: "多玩 30 分鐘", description: "換取額外 30 分鐘看電視或玩遊戲時間。", cost: 200 },
+    { name: "玩具購物券", description: "可兌換一張 100 元的玩具購物券。", cost: 500 },
+    { name: "睡前故事", description: "讓爸爸/媽媽多講一個睡前故事。", cost: 80 },
+    { name: "戶外活動", description: "週末全家去公園或郊遊一次。", cost: 400 }
+];
+
+// --- Core Utility Functions (導出) ---
 
 /** 顯示 Toast 訊息 */
 export const showToast = (message, type = 'success') => {
-    // ... (保持原 showToast 邏輯) ...
     const toastContainer = document.getElementById('toast-container');
     const color = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-primary';
     const icon = type === 'success' ? '✔️' : type === 'danger' ? '❌' : 'ℹ️';
@@ -68,7 +88,6 @@ export const showToast = (message, type = 'success') => {
 
 /** 顯示 Modal */
 export const showModal = (title, contentHTML, buttonsHTML = '') => {
-    // ... (保持原 showModal 邏輯) ...
     const modalContent = document.getElementById('modal-content');
     if (!modalContent) return; 
 
@@ -89,10 +108,10 @@ export const showModal = (title, contentHTML, buttonsHTML = '') => {
         modalContent.classList.add('scale-100', 'opacity-100');
     }, 50);
 };
+window.showModal = showModal;
 
 /** 關閉 Modal */
 export const closeModal = () => {
-    // ... (保持原 closeModal 邏輯) ...
     const modalContent = document.getElementById('modal-content');
     if (!modalContent) return;
 
@@ -103,96 +122,16 @@ export const closeModal = () => {
         state.modalOpen = false;
     }, { once: true });
 };
+window.closeModal = closeModal;
 
-
-/** 渲染 Header 和 Nav Bar */
-function renderHeaderAndNavBar(currentView, kidNickname) {
-    const kidInfo = document.getElementById('kid-info');
-    const navBar = document.getElementById('nav-bar');
-    
-    // Header 渲染
-    if (kidInfo) {
-        if (state.currentKidId) {
-            kidInfo.innerHTML = `
-                <span class="font-bold text-lg text-secondary">${kidNickname}</span>
-                <button onclick="showKidSwitchModal()" class="flex items-center space-x-1 p-2 bg-indigo-600 rounded-full hover:bg-indigo-700">
-                    <span class="text-sm">切換</span>
-                    <span class="text-xl">🔄</span>
-                </button>
-            `;
-        } else {
-             kidInfo.innerHTML = `<span class="text-sm text-yellow-300">未選定小朋友</span>`;
-        }
-    }
-
-    // Navigation Bar 渲染 (使用 a 標籤導向不同 HTML 頁面)
-    const navItems = [
-        { view: 'tasks', label: '任務牆', icon: '📝', href: 'tasks.html' },
-        { view: 'shop', label: '獎勵商城', icon: '🛍️', href: 'shop.html' },
-        { view: 'spirits', label: '精靈蛋屋', icon: '🥚', href: 'spirits.html' },
-        { view: 'settings', label: '設定', icon: '⚙️', href: 'settings.html' }
-    ];
-
-    if (navBar) {
-        navBar.innerHTML = navItems.map(item => {
-            const isActive = currentView === item.view;
-            return `
-                <a href="${item.href}" class="flex flex-col items-center justify-center p-2 flex-1 transition-colors ${isActive ? 'text-primary font-bold' : 'text-gray-400 hover:text-gray-600'}">
-                    <span class="text-2xl">${item.icon}</span>
-                    <span class="text-xs mt-1">${item.label}</span>
-                </a>
-            `;
-        }).join('');
-    }
-}
-
-/** 核心監聽器設置 */
-let renderCallback = () => {}; // 預設為空函式，由頁面 JS 設定
-
-function setupListeners() {
-    // 監聽 Kids 列表
-    onSnapshot(getKidCollectionRef(), (snapshot) => {
-        state.kids = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // 處理 currentKidId 變動
-        if (!state.kids.some(k => k.id === state.currentKidId)) {
-            state.currentKidId = state.kids.length > 0 ? state.kids[0].id : null;
-            localStorage.setItem('currentKidId', state.currentKidId);
-        }
-        // 重新渲染頁面內容
-        renderCallback();
-    });
-
-    // 監聽 Tasks
-    onSnapshot(getTaskCollectionRef(), (snapshot) => {
-        state.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderCallback();
-    });
-
-    // 監聽 Rewards
-    onSnapshot(getRewardCollectionRef(), (snapshot) => {
-        state.rewards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderCallback();
-    });
-
-    // 監聽 Kid State
-    onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/kid_state`), (snapshot) => {
-        state.kidData = {};
-        snapshot.docs.forEach(doc => {
-            state.kidData[doc.id] = doc.data();
-        });
-        renderCallback();
-    });
-}
-
-// --- 導出函式，供每個頁面 JS 呼叫 ---
+// --- Kid Switch Functions ---
 
 /** 切換當前小朋友 (導出) */
 export const switchKid = (kidId) => {
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
-    renderCallback(); // 觸發頁面渲染
+    // 不需要手動觸發 renderCallback，因為 state.currentKidId 變更會觸發 onSnapshot 監聽器
 };
 window.switchKid = switchKid; // 確保 HTML 中 onclick 仍可呼叫
 
@@ -215,17 +154,138 @@ export const switchKidAndCloseModal = (kidId) => {
 }
 window.switchKidAndCloseModal = switchKidAndCloseModal; // 確保 Modal 內部可呼叫
 
+// --- UI Rendering (Shared) ---
+
+function renderHeaderAndNavBar(currentView, kidNickname) {
+    const kidInfo = document.getElementById('kid-info');
+    const navBar = document.getElementById('nav-bar');
+    
+    // Header 渲染
+    if (kidInfo) {
+        if (state.currentKidId) {
+            kidInfo.innerHTML = `
+                <span class="font-bold text-lg text-secondary">${kidNickname}</span>
+                <button onclick="showKidSwitchModal()" class="flex items-center space-x-1 p-2 bg-indigo-600 rounded-full hover:bg-indigo-700">
+                    <span class="text-sm">切換</span>
+                    <span class="text-xl">🔄</span>
+                </button>
+            `;
+        } else {
+             kidInfo.innerHTML = `<span class="text-sm text-yellow-300">未選定小朋友</span>`;
+        }
+    }
+
+    // Navigation Bar 渲染
+    const navItems = [
+        { view: 'tasks', label: '任務牆', icon: '📝', href: 'tasks.html' },
+        { view: 'shop', label: '獎勵商城', icon: '🛍️', href: 'shop.html' },
+        { view: 'spirits', label: '精靈蛋屋', icon: '🥚', href: 'spirits.html' },
+        { view: 'settings', label: '設定', icon: '⚙️', href: 'settings.html' }
+    ];
+
+    if (navBar) {
+        navBar.innerHTML = navItems.map(item => {
+            const isActive = currentView === item.view;
+            return `
+                <a href="${item.href}" class="flex flex-col items-center justify-center p-2 flex-1 transition-colors ${isActive ? 'text-primary font-bold' : 'text-gray-400 hover:text-gray-600'}">
+                    <span class="text-2xl">${item.icon}</span>
+                    <span class="text-xs mt-1">${item.label}</span>
+                </a>
+            `;
+        }).join('');
+    }
+}
+
+// --- Data Listeners ---
+
+let renderCallback = () => {}; // 由頁面 JS 設定的專屬渲染函式
+
+async function preloadInitialData() {
+    if (!db) return;
+
+    const taskQuery = await getDocs(getTaskCollectionRef());
+    const rewardQuery = await getDocs(getRewardCollectionRef());
+    const batch = writeBatch(db);
+    let hasNewData = false;
+
+    if (taskQuery.empty) {
+        initialTasks.forEach(task => {
+            batch.set(doc(getTaskCollectionRef()), task);
+        });
+        hasNewData = true;
+    }
+
+    if (rewardQuery.empty) {
+        initialRewards.forEach(reward => {
+            batch.set(doc(getRewardCollectionRef()), reward);
+        });
+        hasNewData = true;
+    }
+
+    if (hasNewData) {
+        await batch.commit();
+        showToast("預設任務與獎勵已載入！", 'info');
+    }
+}
+
+function setupListeners(pageViewName) {
+    const updateUI = () => {
+        const currentKid = state.kids.find(k => k.id === state.currentKidId);
+        renderHeaderAndNavBar(pageViewName, currentKid?.nickname || '小朋友');
+        renderCallback();
+    };
+
+    onSnapshot(getKidCollectionRef(), (snapshot) => {
+        state.kids = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // 確保 currentKidId 有效
+        if (!state.kids.some(k => k.id === state.currentKidId)) {
+            state.currentKidId = state.kids.length > 0 ? state.kids[0].id : null;
+            localStorage.setItem('currentKidId', state.currentKidId);
+        }
+
+        // 檢查是否需要強制跳轉到設定頁面
+        if (state.kids.length === 0 && pageViewName !== 'settings') {
+             window.location.replace('settings.html');
+             return; 
+        }
+        
+        updateUI();
+    });
+
+    onSnapshot(getTaskCollectionRef(), (snapshot) => {
+        state.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateUI();
+    });
+
+    onSnapshot(getRewardCollectionRef(), (snapshot) => {
+        state.rewards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        updateUI();
+    });
+
+    onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/kid_state`), (snapshot) => {
+        state.kidData = {};
+        snapshot.docs.forEach(doc => {
+            state.kidData[doc.id] = doc.data();
+        });
+        updateUI();
+    });
+}
+
+// --- Initialization Entry Point ---
+
 /** 處理 Firebase 登入並初始化數據監聽 */
-export async function initPage(pageRenderCallback, pageViewName) {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    renderCallback = pageRenderCallback; // 設置頁面專屬的渲染函式
+export async function initPage(pageRenderFunc, pageViewName) {
+    renderCallback = pageRenderFunc; // 設置頁面專屬的渲染函式
 
     const loadingScreen = document.getElementById('loading-screen');
     const content = document.getElementById('content');
 
     try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
         await signInAnonymously(auth);
 
         onAuthStateChanged(auth, async (user) => {
@@ -233,35 +293,18 @@ export async function initPage(pageRenderCallback, pageViewName) {
                 userId = user.uid;
                 state.isAuthReady = true;
 
-                // 預載入預設數據 (初次使用時)
-                // await preloadInitialData(); 
-                
-                setupListeners(); // 設置數據監聽
+                await preloadInitialData();
+                setupListeners(pageViewName); 
 
                 if (loadingScreen) loadingScreen.classList.add('hidden');
                 if (content) content.classList.remove('hidden');
 
-                // 初次渲染 (Header/NavBar 和頁面內容)
-                const currentKid = state.kids.find(k => k.id === state.currentKidId);
-                renderHeaderAndNavBar(pageViewName, currentKid?.nickname || '小朋友');
-
-                // 檢查是否需要強制跳轉到設定頁面
-                if (state.kids.length === 0 && pageViewName !== 'settings') {
-                    window.location.replace('settings.html');
-                } else if (state.kids.length > 0 && !state.currentKidId) {
-                    // 如果有 Kid 但沒有 currentKidId，選擇第一個並重新渲染
-                    state.currentKidId = state.kids[0].id;
-                    localStorage.setItem('currentKidId', state.currentKidId);
-                    renderHeaderAndNavBar(pageViewName, state.kids[0].nickname);
-                }
-
-                pageRenderCallback(); // 呼叫頁面專屬渲染
             } else {
-                // ... (Auth Failed UI) ...
+                if (loadingScreen) loadingScreen.innerHTML = `<p class="text-xl font-bold text-danger">連線失敗：請檢查 Firebase 匿名登入。</p>`;
             }
         });
     } catch (error) {
-        // ... (Initialization Fatal Error UI) ...
         console.error("App Initialization Fatal Error:", error);
+        if (loadingScreen) loadingScreen.innerHTML = `<p class="text-xl font-bold text-danger">應用程式初始化失敗 (App Error)</p>`;
     }
 }

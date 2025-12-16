@@ -3,7 +3,7 @@
 import { state, initPage, showToast, getKidDocRef, showModal, closeModal } from "./base.js";
 import { updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-/** 取得隨機精靈資料 (原 script.js 中遺失，但孵化邏輯需要) */
+/** 取得隨機精靈資料 */
 function getRandomSpirit() {
     const spirits = [
         { name: "火焰小精靈", icon: "🔥" },
@@ -121,13 +121,12 @@ window.hatchSpirit = async () => {
                 `<button onclick="closeModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">我知道了</button>`
             );
         }
-        // base.js 的監聽器會自動觸發 renderSpiritsContent
     } catch (error) {
         console.error("Error hatching spirit:", error);
         showToast(`孵化失敗: ${error.message}`, 'danger');
     }
 };
-window.hatchSpirit = window.hatchSpirit; // 確保全域可訪問
+window.hatchSpirit = window.hatchSpirit; 
 
 /** 命名精靈 (導出給 Modal 呼叫) */
 window.nameSpirit = async (spiritId) => {
@@ -148,13 +147,12 @@ window.nameSpirit = async (spiritId) => {
         await updateDoc(kidRef, { spirits: updatedSpirits });
         showToast(`精靈已命名為「${customName}」！`, 'success');
         closeModal();
-        // base.js 的監聽器會自動觸發 renderSpiritsContent
     } catch (error) {
         console.error("Error naming spirit:", error);
         showToast(`命名失敗: ${error.message}`, 'danger');
     }
 };
-window.nameSpirit = window.nameSpirit; // 確保全域可訪問
+window.nameSpirit = window.nameSpirit;
 
 window.onload = () => {
     initPage(renderSpiritsContent, 'spirits');

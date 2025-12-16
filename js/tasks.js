@@ -82,13 +82,12 @@ window.completeTask = async (taskId, points) => {
             showToast("恭喜！您獲得了一顆精靈蛋！🥚", 'success');
         }
 
-        // base.js 的監聽器會自動觸發 renderTasksContent
     } catch (error) {
         console.error("Error completing task:", error);
         showToast(`完成任務失敗: ${error.message}`, 'danger');
     }
 };
-
+window.completeTask = window.completeTask; // 確保全域可訪問
 
 window.onload = () => {
     initPage(renderTasksContent, 'tasks');

@@ -1,8 +1,40 @@
-<body>
-    <script>
-        // 確保首頁直接跳轉到任務頁
-        window.location.replace('tasks.html');
-    </script>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精靈蛋屋 - KIDSTEST</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="page-background">
+    <div id="modal-container" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div id="modal-content" class="bg-white p-6 rounded-xl shadow-2xl w-11/12 max-w-md transform scale-95 opacity-0 transition-all duration-300">
+            </div>
+    </div>
+
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2">
+        </div>
+
+    <div id="loading-screen" class="fixed inset-0 bg-white flex items-center justify-center z-40">
+        <p class="text-xl font-bold text-primary">載入中... 請稍候</p>
+    </div>
+
+    <div id="content" class="container-box mx-auto p-4 hidden">
+        <header class="sticky top-0 bg-white/95 backdrop-blur-sm z-30 pt-4 pb-2 border-b border-gray-100">
+            <div id="kid-info" class="flex items-center justify-between text-primary mb-4 p-2 bg-pink-light/30 rounded-full shadow-inner">
+                </div>
+        </header>
+
+        <main id="view-content" class="py-4 min-h-[500px]">
+            </main>
+    </div>
+    
+    <footer id="footer" class="fixed bottom-0 left-0 right-0 bg-white z-40">
+        <nav id="nav-bar" class="flex justify-around py-3">
+            </nav>
+    </footer>
+
     <script type="module" src="js/base.js"></script>
     <script type="module" src="js/spirits.js"></script>
 </body>

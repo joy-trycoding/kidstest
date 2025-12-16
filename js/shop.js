@@ -66,7 +66,7 @@ window.redeemReward = async (rewardId, cost) => {
         `<button onclick="confirmRedemption('${rewardId}', ${cost})" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定兌換</button>`
     );
 };
-window.redeemReward = window.redeemReward; // 確保全域可訪問
+window.redeemReward = window.redeemReward; 
 
 /** 確認兌換 (導出給 Modal 呼叫) */
 window.confirmRedemption = async (rewardId, cost) => {
@@ -82,13 +82,12 @@ window.confirmRedemption = async (rewardId, cost) => {
         });
 
         showToast(`「${state.rewards.find(r => r.id === rewardId)?.name}」兌換成功！請找爸爸/媽媽領取！`, 'success');
-        // base.js 的監聽器會自動觸發 renderShopContent
     } catch (error) {
         console.error("Error redeeming reward:", error);
         showToast(`兌換失敗: ${error.message}`, 'danger');
     }
 }
-window.confirmRedemption = window.confirmRedemption; // 確保全域可訪問
+window.confirmRedemption = window.confirmRedemption; 
 
 window.onload = () => {
     initPage(renderShopContent, 'shop');
