@@ -1,4 +1,4 @@
-// js/tasks.js
+// js/tasks.js (啟動邏輯修正版)
 
 import { getKidStateDocRef, state, showToast, showModal, initPage } from "./base.js"; 
 import { updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -55,10 +55,7 @@ window.completeTask = async (taskId, points) => {
     if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
     
     const kidId = state.currentKidId;
-    
-    // 🌟 關鍵修正：確保呼叫的是 base.js 實際導出的函式名稱
     const kidRef = getKidStateDocRef(kidId); 
-    
     const now = Date.now();
     const today = new Date().toDateString();
 
@@ -93,6 +90,5 @@ window.completeTask = async (taskId, points) => {
 // 確保全域可訪問
 window.completeTask = window.completeTask; 
 
-window.onload = () => {
-    initPage(renderTasksContent, 'tasks');
-};
+// 🚨 關鍵修正：移除 window.onload，在模組載入時直接啟動
+initPage(renderTasksContent, 'tasks');
