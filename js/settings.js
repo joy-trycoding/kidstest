@@ -39,7 +39,6 @@ function renderRewardList() {
 
 /** 渲染小朋友列表子區塊 */
 function renderKidList(currentKid) {
-    // 確保 switchKid 函式從 base.js 匯入，才能在 HTML 中使用
     const list = state.kids.map(kid => `
         <div class="flex items-center justify-between p-3 bg-white rounded-xl shadow-md mb-2 border-2 ${kid.id === currentKid?.id ? 'border-primary ring-2 ring-primary/50' : 'border-gray-200'}">
             <div class="flex-1 min-w-0 mr-4">
@@ -113,15 +112,20 @@ window.showEditKidModal = (kidId = null) => {
         </select>
     `;
 
+    // 🌟 修正點：在新增模式下，傳遞空字串 '' 作為 ID，確保 saveKid 執行 addDoc
+    const idForSave = isEdit ? kidId : ''; 
+    
     const saveButton = `
-        <button onclick="saveKid('${kidId}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
+        <button onclick="saveKid('${idForSave}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
     `;
-    // closeModal 是模組匯入的，但在這裡呼叫 showModal 時，它會內部調用 closeModal
     showModal(title, contentHTML, saveButton);
 };
 window.showEditKidModal = window.showEditKidModal;
 
 window.saveKid = async (kidId = null) => {
+    // 修正：如果 kidId 是空字串，將它轉換回 null，確保 if 判斷正確
+    if (kidId === '') kidId = null;
+
     const nickname = document.getElementById('kidNickname').value.trim();
     const age = document.getElementById('kidAge').value.trim();
     const gender = document.getElementById('kidGender').value;
@@ -132,9 +136,11 @@ window.saveKid = async (kidId = null) => {
 
     try {
         if (kidId) {
+            // 更新現有資料
             await updateDoc(doc(getKidCollectionRef(), kidId), data);
             showToast('小朋友資料更新成功！');
         } else {
+            // 新增資料
             await addDoc(getKidCollectionRef(), data);
             showToast('小朋友資料新增成功！');
         }
@@ -167,6 +173,9 @@ window.deleteKid = window.deleteKid;
 
 // 任務/獎勵的共用儲存和刪除函式
 window.saveItem = async (type, data, itemId = null) => {
+    // 修正：如果 itemId 是空字串，將它轉換回 null
+    if (itemId === '') itemId = null;
+    
     const colRef = type === 'task' ? getTaskCollectionRef() : getRewardCollectionRef();
     const collectionName = type === 'task' ? '任務' : '獎勵';
 
@@ -233,8 +242,11 @@ window.showEditTaskModal = (taskId = null) => {
         </select>
     `;
 
+    // 🌟 修正點：在新增模式下，傳遞空字串 '' 作為 ID
+    const idForSave = isEdit ? taskId : ''; 
+
     const saveButton = `
-        <button onclick="saveTaskForm('${taskId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
+        <button onclick="saveTaskForm('${idForSave}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
@@ -248,6 +260,7 @@ window.saveTaskForm = (taskId) => {
         cycle: document.getElementById('taskCycle').value,
     };
     if (!data.name || !data.points) return showToast("任務名稱和點數是必填項！", 'danger');
+    // 這裡調用 saveItem，它會在內部處理 ID 為空字串的情況
     window.saveItem('task', data, taskId);
 };
 window.saveTaskForm = window.saveTaskForm;
@@ -269,8 +282,11 @@ window.showEditRewardModal = (rewardId = null) => {
         <input type="number" id="rewardCost" value="${reward.cost || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
     `;
 
+    // 🌟 修正點：在新增模式下，傳遞空字串 '' 作為 ID
+    const idForSave = isEdit ? rewardId : ''; 
+
     const saveButton = `
-        <button onclick="saveRewardForm('${rewardId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
+        <button onclick="saveRewardForm('${idForSave}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
@@ -283,10 +299,11 @@ window.saveRewardForm = (rewardId) => {
         cost: document.getElementById('rewardCost').value.trim(),
     };
     if (!data.name || !data.cost) return showToast("商品名稱和點數是必填項！", 'danger');
+    // 這裡調用 saveItem，它會在內部處理 ID 為空字串的情況
     window.saveItem('reward', data, rewardId);
 };
 window.saveRewardForm = window.saveRewardForm;
 
 
-// 關鍵修正：移除 window.onload，在模組載入時直接啟動
+// 啟動邏輯
 initPage(renderSettingsContent, 'settings');
