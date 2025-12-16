@@ -12,6 +12,9 @@ function renderTasksContent() {
 
     const taskElements = state.tasks
         .filter(task => {
+            // 必須先檢查 task 存在，以防資料同步問題
+            if (!task) return false; 
+            
             if (task.cycle === 'daily') {
                 const lastCompletionDate = kidState.lastTaskCompletion[task.id] ? new Date(kidState.lastTaskCompletion[task.id]).toDateString() : null;
                 return lastCompletionDate !== today;
@@ -63,6 +66,13 @@ window.completeTask = async (taskId, points) => {
         const task = state.tasks.find(t => t.id === taskId);
         const kidState = state.kidData[kidId] || { points: 0, lastTaskCompletion: {} }; // 確保 kidState 有默認值
 
+        // 🌟 關鍵修正：新增防禦性檢查，如果找不到任務，則直接返回
+        if (!task) {
+             showToast("任務資料遺失，請重新整理頁面。", 'danger');
+             console.error(`Attempted to complete non-existent task with ID: ${taskId}`);
+             return;
+        }
+
         if (task.cycle === 'daily') {
             const lastCompletionDate = kidState.lastTaskCompletion[taskId] ? new Date(kidState.lastTaskCompletion[taskId]).toDateString() : null;
             if (lastCompletionDate === today) {
@@ -101,3 +111,4 @@ window.completeTask = window.completeTask;
 
 // 啟動邏輯
 initPage(renderTasksContent, 'tasks');
+
