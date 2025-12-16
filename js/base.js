@@ -15,7 +15,7 @@ let renderCallback = () => {}; // 當前頁面渲染函式的回呼
 
 // 模擬的 Firebase 配置 (請替換為您自己的配置)
 const firebaseConfig = {
-    apiKey: "AIzaSyDZ6A9haTwY6dCa93Tsa1X63ehzx-xe_FE", 
+    apiKey: "AIzaSyDZ6AhaTwY6dCa93Tsa1X63ehzx-xe_FE", 
     authDomain: "kidstest-99c7f.firebaseapp.com",
     projectId: "kidstest-99c7f", 
     storageBucket: "kidstest-99c7f.firebasestorage.app", 
@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 // --- 全域狀態 (State) ---
-export const state = { // 保持 export，因為 state 是唯一的默認匯出對象
+export const state = { // 保持 export const state = ...
     isAuthReady: false,
     kids: [], // 小朋友清單
     currentKidId: localStorage.getItem('currentKidId') || null, // 當前選定的小朋友 ID
@@ -43,22 +43,22 @@ function getUserArtifactsRef() {
 }
 
 /** 取得 Kids 集合參考 */
-function getKidCollectionRef() {
+export function getKidCollectionRef() {
     return collection(getUserArtifactsRef(), 'kids');
 }
 
 /** 取得 Tasks 集合參考 */
-function getTaskCollectionRef() {
+export function getTaskCollectionRef() {
     return collection(getUserArtifactsRef(), 'tasks');
 }
 
 /** 取得 Rewards 集合參考 */
-function getRewardCollectionRef() {
+export function getRewardCollectionRef() {
     return collection(getUserArtifactsRef(), 'rewards');
 }
 
 /** 取得特定小朋友的狀態文件參考 */
-function getKidStateDocRef(kidId) {
+export function getKidStateDocRef(kidId) {
     return doc(getUserArtifactsRef(), 'kid_states', kidId);
 }
 
@@ -82,7 +82,7 @@ const initialRewards = [
 // --- UI 輔助函式 (Toast & Modal) ---
 
 /** 顯示 Toast 提示訊息 */
-function showToast(message, type = 'success') { // 🚨 移除 export
+export function showToast(message, type = 'success') { // 這裡已經是 export
     const toastContainer = document.getElementById('toast-container');
     const bgColor = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-secondary';
     
@@ -118,7 +118,7 @@ function closeModal() {
 window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
 
 /** 顯示 Modal */
-function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 🚨 移除 export
+export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 這裡已經是 export
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
@@ -146,7 +146,7 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
 // --- Kid Switch Functions ---
 
 /** 切換當前小朋友 (導出) */
-const switchKid = (kidId) => { // 🚨 移除 export
+export const switchKid = (kidId) => { // 這裡已經是 export
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
@@ -381,5 +381,6 @@ export async function initPage(pageRenderFunc, pageViewName) {
 
 // 匯出常用的 Firestore 函式
 export { getFirestore, getDoc, setDoc, writeBatch, arrayUnion, getDocs, doc, collection };
-// 匯出狀態 (所有在定義時未加 export 的函式和對象)
-export { state, showToast, showModal, switchKid, getKidCollectionRef, getTaskCollectionRef, getRewardCollectionRef, getKidStateDocRef };
+
+// 匯出功能函式和集合參考
+export { showToast, showModal, switchKid, getKidCollectionRef, getTaskCollectionRef, getRewardCollectionRef, getKidStateDocRef, initPage };
