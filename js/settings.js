@@ -1,6 +1,6 @@
 // js/settings.js
 
-import { state, initPage, showToast, getKidCollectionRef, getKidDocRef, getTaskCollectionRef, getRewardCollectionRef, showModal, closeModal } from "./base.js"; 
+import { state, initPage, showToast, getKidCollectionRef, getKidDocRef, getTaskCollectionRef, getRewardCollectionRef, showModal, closeModal, switchKid } from "./base.js"; 
 import { doc, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /** 渲染任務清單子區塊 */
@@ -39,6 +39,7 @@ function renderRewardList() {
 
 /** 渲染小朋友列表子區塊 */
 function renderKidList(currentKid) {
+    // 確保 switchKid 函式從 base.js 匯入，才能在 HTML 中使用
     const list = state.kids.map(kid => `
         <div class="flex items-center justify-between p-3 bg-white rounded-xl shadow-md mb-2 border-2 ${kid.id === currentKid?.id ? 'border-primary ring-2 ring-primary/50' : 'border-gray-200'}">
             <div class="flex-1 min-w-0 mr-4">
@@ -115,6 +116,7 @@ window.showEditKidModal = (kidId = null) => {
     const saveButton = `
         <button onclick="saveKid('${kidId}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
     `;
+    // closeModal 是模組匯入的，但在這裡呼叫 showModal 時，它會內部調用 closeModal
     showModal(title, contentHTML, saveButton);
 };
 window.showEditKidModal = window.showEditKidModal;
@@ -286,5 +288,5 @@ window.saveRewardForm = (rewardId) => {
 window.saveRewardForm = window.saveRewardForm;
 
 
-// 🚨 關鍵修正：移除 window.onload，在模組載入時直接啟動
+// 關鍵修正：移除 window.onload，在模組載入時直接啟動
 initPage(renderSettingsContent, 'settings');
