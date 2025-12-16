@@ -6,11 +6,10 @@ import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-
 // 設定 Firebase Debug Log
 setLogLevel('Debug');
 
-// --- Global Variables (Canvas Environment Fallback) ---
-const appId = 'autonomy-helper-mock-id'; // 靜態 App ID
-const initialAuthToken = null; // 靜態 Token
+// --- Global Constants and Configuration ---
+const appId = 'autonomy-helper-mock-id';
+const initialAuthToken = null; 
 
-// Firebase Config (已由使用者提供並填入)
 const MOCK_FIREBASE_CONFIG = {
     apiKey: "AIzaSyDZ6A9haTwY6dCa93Tsa1X63ehzx-xe_FE", 
     authDomain: "kidstest-99c7f.firebaseapp.com",
@@ -21,7 +20,7 @@ const MOCK_FIREBASE_CONFIG = {
     measurementId: "G-Z6VT9G5JR9"
 };
 
-const firebaseConfig = MOCK_FIREBASE_CONFIG; // 由於在外部運行，直接使用 MOCK_CONFIG
+const firebaseConfig = MOCK_FIREBASE_CONFIG; 
 
 let app;
 let db;
@@ -31,72 +30,14 @@ let userId = null;
 // --- App State ---
 const state = {
     isAuthReady: false,
-    currentView: 'settings', // 預設為 'settings' 讓使用者先設定
+    currentView: 'settings', 
     kids: [],
     currentKidId: null,
     tasks: [],
     rewards: [],
-    kidData: {}, // { kidId: { points: 0, spirits: [] } }
+    kidData: {}, 
     modalOpen: false,
     toastQueue: [],
-};
-
-// --- Utility Functions ---
-
-/** 顯示 Toast 訊息 */
-window.showToast = (message, type = 'success') => {
-    const toastContainer = document.getElementById('toast-container');
-    const color = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-primary';
-    const icon = type === 'success' ? '✔️' : type === 'danger' ? '❌' : 'ℹ️';
-
-    const toast = document.createElement('div');
-    toast.className = `p-3 rounded-xl shadow-xl text-white font-medium flex items-center space-x-2 ${color} transition-all duration-300 transform translate-x-full opacity-0`;
-    toast.innerHTML = `<span>${icon}</span><span class="whitespace-nowrap">${message}</span>`;
-    
-    toastContainer.appendChild(toast);
-
-    setTimeout(() => {
-        toast.classList.remove('translate-x-full', 'opacity-0');
-        toast.classList.add('translate-x-0', 'opacity-100');
-    }, 50);
-
-    setTimeout(() => {
-        toast.classList.remove('translate-x-0', 'opacity-100');
-        toast.classList.add('translate-x-full', 'opacity-0');
-        toast.addEventListener('transitionend', () => toast.remove());
-    }, 3000);
-};
-
-/** 顯示 Modal */
-window.showModal = (title, contentHTML, buttonsHTML = '') => {
-    state.modalOpen = true;
-    const modalContent = document.getElementById('modal-content');
-    modalContent.innerHTML = `
-        <h3 class="text-2xl font-bold mb-4 text-primary">${title}</h3>
-        <div class="space-y-4">
-            ${contentHTML}
-        </div>
-        <div class="mt-6 flex justify-end space-x-3">
-            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">取消</button>
-            ${buttonsHTML}
-        </div>
-    `;
-    document.getElementById('modal-container').classList.remove('hidden');
-    setTimeout(() => {
-        modalContent.classList.remove('scale-95', 'opacity-0');
-        modalContent.classList.add('scale-100', 'opacity-100');
-    }, 50);
-};
-
-/** 關閉 Modal */
-window.closeModal = () => {
-    const modalContent = document.getElementById('modal-content');
-    modalContent.classList.remove('scale-100', 'opacity-100');
-    modalContent.classList.add('scale-95', 'opacity-0');
-    modalContent.addEventListener('transitionend', () => {
-        document.getElementById('modal-container').classList.add('hidden');
-        state.modalOpen = false;
-    }, { once: true });
 };
 
 // --- Firestore Paths ---
@@ -122,411 +63,61 @@ const initialRewards = [
     { name: "戶外活動", description: "週末全家去公園或郊遊一次。", cost: 400 }
 ];
 
-async function preloadInitialData() {
-    if (!db) return;
 
-    const taskQuery = await getDocs(getTaskCollectionRef());
-    const rewardQuery = await getDocs(getRewardCollectionRef());
-    const batch = writeBatch(db);
-    let hasNewData = false;
+// --- RENDER FUNCTION DEFINITIONS (Must be defined before window.render) ---
 
-    if (taskQuery.empty) {
-        initialTasks.forEach(task => {
-            batch.set(doc(getTaskCollectionRef()), task);
-        });
-        hasNewData = true;
-    }
-
-    if (rewardQuery.empty) {
-        initialRewards.forEach(reward => {
-            batch.set(doc(getRewardCollectionRef()), reward);
-        });
-        hasNewData = true;
-    }
-
-    if (hasNewData) {
-        await batch.commit();
-        showToast("預設任務與獎勵已載入！", 'info');
-    }
-}
-
-// --- Core Logic ---
-
-/** 獲取並初始化 Kid State (點數/精靈) */
-async function getKidState(kidId) {
-    const kidDoc = await getDoc(getKidDocRef(kidId));
-    if (kidDoc.exists()) {
-        return kidDoc.data();
-    } else {
-        const initialData = {
-            points: 0,
-            spirits: [],
-            lastTaskCompletion: {} // { taskId: timestamp }
-        };
-        await setDoc(getKidDocRef(kidId), initialData);
-        return initialData;
-    }
-}
-
-/** 切換當前小朋友 */
-window.switchKid = (kidId) => {
-    state.currentKidId = kidId;
-    localStorage.setItem('currentKidId', kidId);
-    render();
-    showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
-};
-
-/** 新增/編輯任務或獎勵 */
-window.saveItem = async (type, data, id = null) => {
-    try {
-        const collectionRef = type === 'task' ? getTaskCollectionRef() : getRewardCollectionRef();
-        
-        if (type === 'task') {
-            data.points = parseInt(data.points) || 0;
-        } else if (type === 'reward') {
-            data.cost = parseInt(data.cost) || 0;
-        }
-
-        if (id) {
-            await updateDoc(doc(collectionRef, id), data);
-            showToast(`${type === 'task' ? '任務' : '獎勵'}編輯成功！`);
-        } else {
-            await addDoc(collectionRef, data);
-            showToast(`新增${type === 'task' ? '任務' : '獎勵'}成功！`);
-        }
-        closeModal();
-    } catch (error) {
-        console.error(`Error saving ${type}:`, error);
-        showToast(`儲存失敗: ${error.message}`, 'danger');
-    }
-};
-
-/** 刪除任務或獎勵 */
-window.deleteItem = async (type, id) => {
-    const confirmed = confirm(`確定要刪除這個${type === 'task' ? '任務' : '獎勵'}嗎？`);
-    if (confirmed) {
-        try {
-            const collectionRef = type === 'task' ? getTaskCollectionRef() : getRewardCollectionRef();
-            await deleteDoc(doc(collectionRef, id));
-            showToast(`${type === 'task' ? '任務' : '獎勵'}已刪除！`);
-        } catch (error) {
-            console.error(`Error deleting ${type}:`, error);
-            showToast(`刪除失敗: ${error.message}`, 'danger');
-        }
-    }
-};
-
-/** 任務完成 (核心功能) */
-window.completeTask = async (taskId, points) => {
-    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-    
-    const kidId = state.currentKidId;
-    const kidRef = getKidDocRef(kidId);
-    const now = Date.now();
-    const today = new Date().toDateString();
-
-    try {
-        const task = state.tasks.find(t => t.id === taskId);
-        const kidState = state.kidData[kidId];
-
-        if (task.cycle === 'daily') {
-            const lastCompletionDate = kidState.lastTaskCompletion[taskId] ? new Date(kidState.lastTaskCompletion[taskId]).toDateString() : null;
-            if (lastCompletionDate === today) {
-                return showToast("這個每日任務今天已經完成了喔！", 'info');
-            }
-        }
-
-        await updateDoc(kidRef, {
-            points: (kidState.points || 0) + points,
-            [`lastTaskCompletion.${taskId}`]: now,
-        });
-
-        showToast(`任務完成！獲得 ${points} 點！`, 'success');
-        
-        const newPoints = (kidState.points || 0) + points;
-        if (Math.floor(newPoints / 50) > Math.floor(kidState.points / 50)) {
-            showToast("恭喜！您獲得了一顆精靈蛋！🥚", 'success');
-        }
-
-        render();
-    } catch (error) {
-        console.error("Error completing task:", error);
-        showToast(`完成任務失敗: ${error.message}`, 'danger');
-    }
-};
-
-/** 獎勵兌換 (核心功能) */
-window.redeemReward = async (rewardId, cost) => {
-    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-
-    const kidId = state.currentKidId;
-    const kidRef = getKidDocRef(kidId);
-    const kidState = state.kidData[kidId];
-
-    if ((kidState.points || 0) < cost) {
-        return showToast("點數不足！請多努力完成任務！", 'danger');
-    }
-
-    const reward = state.rewards.find(r => r.id === rewardId);
-    
-    window.showModal(
-        '確認兌換',
-        `<p class="text-lg text-gray-700">您確定要用 <span class="text-secondary font-bold">${cost} 點</span> 兌換「${reward.name}」嗎？</p>`,
-        `<button onclick="confirmRedemption('${rewardId}', ${cost})" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定兌換</button>`
-    );
-};
-
-window.confirmRedemption = async (rewardId, cost) => {
-    closeModal();
-    const kidId = state.currentKidId;
-    const kidRef = getKidDocRef(kidId);
-    const kidState = state.kidData[kidId];
-
-    try {
-        await updateDoc(kidRef, {
-            points: (kidState.points || 0) - cost,
-            redemptions: arrayUnion({ rewardId, timestamp: Date.now(), cost })
-        });
-
-        showToast(`「${state.rewards.find(r => r.id === rewardId)?.name}」兌換成功！請找爸爸/媽媽領取！`, 'success');
-        render();
-    } catch (error) {
-        console.error("Error redeeming reward:", error);
-        showToast(`兌換失敗: ${error.message}`, 'danger');
-    }
-}
-
-/** 孵化精靈 (核心功能) */
-const spiritNames = ["太陽獅Leo", "雲朵羊Coco", "星星狐Foxy", "彩虹魚Rainbow", "機器人Robby", "魔法兔Momo", "樹葉龜Turtle", "閃電鳥Bolt"];
-const spiritIcons = ["🦁", "🐑", "🦊", "🌈", "🤖", "🐰", "🐢", "🐦"];
-const getRandomSpirit = () => {
-    const index = Math.floor(Math.random() * spiritNames.length);
-    return { name: spiritNames[index], icon: spiritIcons[index] };
-}
-
-window.hatchSpirit = async () => {
-    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-
-    const kidId = state.currentKidId;
-    const kidRef = getKidDocRef(kidId);
-    const kidState = state.kidData[kidId];
-
-    const pointsNeeded = 50;
-    const numEggs = Math.floor((kidState.points || 0) / pointsNeeded);
-
-    if (numEggs < 1) {
-        return showToast(`點數不足！每 ${pointsNeeded} 點可孵化一顆蛋。`, 'info');
-    }
-
-    const pointsToDeduct = pointsNeeded;
-    const newPoints = (kidState.points || 0) - pointsToDeduct;
-
-    const isSuccess = Math.random() < 0.9;
-    const newSpirit = {
-        id: crypto.randomUUID(),
-        isSuccess: isSuccess,
-        timestamp: Date.now(),
-        ...getRandomSpirit(),
-        customName: isSuccess ? '' : '碎裂的蛋殼'
-    };
-
-    try {
-        await updateDoc(kidRef, {
-            points: newPoints,
-            spirits: arrayUnion(newSpirit)
-        });
-        
-        if (isSuccess) {
-            window.showModal(
-                '🥚 孵化成功！',
-                `<div class="text-center">
-                    <p class="text-6xl mb-4">${newSpirit.icon}</p>
-                    <p class="text-xl font-semibold mb-3">恭喜您孵化出「${newSpirit.name}」！</p>
-                    <label for="customName" class="block text-gray-700">為牠取個可愛的名字吧：</label>
-                    <input type="text" id="customName" placeholder="輸入名字" class="w-full mt-1 p-2 border border-gray-300 rounded-lg">
-                </div>`,
-                `<button onclick="nameSpirit('${newSpirit.id}')" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定命名</button>`
-            );
-        } else {
-            window.showModal(
-                '💔 孵化失敗...',
-                `<div class="text-center">
-                    <p class="text-6xl mb-4">💔</p>
-                    <p class="text-xl font-semibold text-danger">哎呀！這次沒有成功孵化。</p>
-                    <p class="text-gray-600 mt-2">別灰心，再努力累積點數吧！</p>
-                </div>`,
-                `<button onclick="closeModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">我知道了</button>`
-            );
-        }
-        render();
-    } catch (error) {
-        console.error("Error hatching spirit:", error);
-        showToast(`孵化失敗: ${error.message}`, 'danger');
-    }
-};
-
-/** 命名精靈 */
-window.nameSpirit = async (spiritId) => {
-    const customName = document.getElementById('customName').value.trim();
-    if (!customName) {
-        return showToast("名字不能為空！", 'danger');
-    }
-
-    const kidId = state.currentKidId;
-    const kidRef = getKidDocRef(kidId);
-    const kidState = state.kidData[kidId];
-
-    try {
-        const updatedSpirits = kidState.spirits.map(s => 
-            s.id === spiritId ? { ...s, customName: customName } : s
-        );
-        
-        await updateDoc(kidRef, { spirits: updatedSpirits });
-        showToast(`精靈已命名為「${customName}」！`, 'success');
-        closeModal();
-        render();
-    } catch (error) {
-        console.error("Error naming spirit:", error);
-        showToast(`命名失敗: ${error.message}`, 'danger');
-    }
-};
-
-// --- Data Listeners ---
-
-function setupListeners() {
-    // 1. Kids Listener
-    onSnapshot(getKidCollectionRef(), (snapshot) => {
-        state.kids = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        if (!state.currentKidId || !state.kids.some(k => k.id === state.currentKidId)) {
-            const savedKidId = localStorage.getItem('currentKidId');
-            if (savedKidId && state.kids.some(k => k.id === savedKidId)) {
-                state.currentKidId = savedKidId;
-            } else if (state.kids.length > 0) {
-                state.currentKidId = state.kids[0].id;
-                state.currentView = 'tasks'; 
-            } else {
-                state.currentKidId = null;
-                state.currentView = 'settings'; 
-            }
-        }
-        render();
-    });
-
-    // 2. Tasks Listener
-    onSnapshot(getTaskCollectionRef(), (snapshot) => {
-        state.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        render();
-    });
-
-    // 3. Rewards Listener
-    onSnapshot(getRewardCollectionRef(), (snapshot) => {
-        state.rewards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        render();
-    });
-
-    // 4. Kid State Listener (This should listen to all kid states for the parent)
-    onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/kid_state`), (snapshot) => {
-        state.kidData = {};
-        snapshot.docs.forEach(doc => {
-            state.kidData[doc.id] = doc.data();
-        });
-        render();
-    });
-}
-
-// --- UI Render Functions ---
-
-/** 渲染主 App 介面 */
-window.render = () => {
-    if (!state.isAuthReady) return;
-
-    const content = document.getElementById('content');
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) loadingScreen.classList.add('hidden');
-    if (content) content.classList.remove('hidden');
-
-    renderHeader();
-    renderNavBar();
-    
-    const viewContent = document.getElementById('view-content');
-    viewContent.innerHTML = '';
-
-    const isInitialSetup = state.kids.length === 0;
-
-    if (isInitialSetup && state.currentView !== 'settings') {
-        viewContent.innerHTML = `
-            <div class="text-center p-10 bg-pink-light/50 rounded-3xl mt-8 shadow-inner border border-pink-light">
-                <p class="text-3xl font-bold text-danger mb-4">🚫 請先設定小朋友資料</p>
-                <p class="text-gray-700 font-medium">請點擊右下角的「設定 ⚙️」頁面新增小朋友，才能使用此功能喔！</p>
+/** 渲染任務清單子區塊 */
+function renderTaskList() {
+    const list = state.tasks.map(task => `
+        <div class="flex items-center justify-between p-3 bg-bg-light rounded-xl shadow-inner mb-2 border border-gray-200">
+            <div class="flex-1 min-w-0 mr-4">
+                <p class="font-semibold text-gray-800 truncate">${task.name} <span class="text-xs text-primary ml-2">(${task.cycle === 'daily' ? '每日' : '一次性'})</span></p>
+                <p class="text-sm text-gray-500">點數: ${task.points}</p>
             </div>
-        `;
-        return;
-    }
-
-    switch (state.currentView) {
-        case 'tasks':
-            viewContent.appendChild(renderTasks());
-            break;
-        case 'shop':
-            viewContent.appendChild(renderShop());
-            break;
-        case 'spirits':
-            viewContent.appendChild(renderSpirits());
-            break;
-        case 'settings':
-            viewContent.appendChild(renderSettings(isInitialSetup));
-            break;
-    }
-};
-
-/** 渲染 Header (小朋友切換) */
-function renderHeader() {
-    const currentKid = state.kids.find(k => k.id === state.currentKidId);
-    const kidInfo = document.getElementById('kid-info');
-    
-    if (!kidInfo) return;
-
-    if (!currentKid) {
-        kidInfo.innerHTML = `<span class="text-sm">未選定小朋友</span>`;
-        return;
-    }
-
-    const currentKidNickname = currentKid.nickname || '未命名小朋友';
-
-    kidInfo.innerHTML = `
-        <div class="text-sm font-medium">當前：${currentKidNickname}</div>
-        <button onclick="showKidSwitchModal()" class="bg-accent/50 text-white text-xs font-bold px-3 py-1 rounded-full hover:bg-accent transition-colors shadow-md">
-            切換 🔄
-        </button>
-    `;
-}
-
-/** 渲染底部導覽列 */
-function renderNavBar() {
-    const navBar = document.getElementById('nav-bar');
-    if (!navBar) return;
-
-    const navItems = [
-        { id: 'tasks', icon: '📅', label: '任務牆' },
-        { id: 'shop', icon: '🎁', label: '獎勵商城' },
-        { id: 'spirits', icon: '🥚', label: '精靈蛋屋' },
-        { id: 'settings', icon: '⚙️', label: '設定' }
-    ];
-
-    navBar.innerHTML = navItems.map(item => `
-        <button onclick="changeView('${item.id}')" class="flex flex-col items-center p-2 transition-colors ${state.currentView === item.id ? 'text-primary font-bold' : 'text-gray-500 hover:text-primary'}">
-            <span class="text-2xl">${item.icon}</span>
-            <span class="text-xs mt-1">${item.label}</span>
-        </button>
+            <div class="flex space-x-2">
+                <button onclick="showEditTaskModal('${task.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
+                <button onclick="deleteItem('task', '${task.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
+            </div>
+        </div>
     `).join('');
+    return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何任務。</p>';
 }
 
-/** 切換 View */
-window.changeView = (view) => {
-    state.currentView = view;
-    render();
-};
+/** 渲染獎勵清單子區塊 */
+function renderRewardList() {
+    const list = state.rewards.map(reward => `
+        <div class="flex items-center justify-between p-3 bg-bg-light rounded-xl shadow-inner mb-2 border border-gray-200">
+            <div class="flex-1 min-w-0 mr-4">
+                <p class="font-semibold text-gray-800 truncate">${reward.name}</p>
+                <p class="text-sm text-gray-500">兌換點數: ${reward.cost}</p>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="showEditRewardModal('${reward.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
+                <button onclick="deleteItem('reward', '${reward.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+    return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何獎勵商品。</p>';
+}
+
+/** 渲染小朋友列表子區塊 (在設定頁面使用) */
+function renderKidList(currentKid) {
+    const list = state.kids.map(kid => `
+        <div class="flex items-center justify-between p-3 bg-white rounded-xl shadow-md mb-2 border-2 ${kid.id === currentKid?.id ? 'border-primary ring-2 ring-primary/50' : 'border-gray-200'}">
+            <div class="flex-1 min-w-0 mr-4">
+                <p class="font-black text-gray-800 truncate">${kid.nickname} ${kid.id === currentKid?.id ? '(當前)' : ''}</p>
+                <p class="text-xs text-gray-500">年齡: ${kid.age || '未填'} / 性別: ${kid.gender || '未填'}</p>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="switchKid('${kid.id}')" class="text-accent hover:text-teal-600 text-xl">🔄</button>
+                <button onclick="showEditKidModal('${kid.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
+                <button onclick="deleteKid('${kid.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+    
+    return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何小朋友。</p>';
+}
 
 /** 渲染任務牆 (Kid View) */
 function renderTasks() {
@@ -698,62 +289,287 @@ function renderSettings(forceKidSetup = false) {
     return element;
 }
 
-// --- Settings Sub-renders ---
 
-function renderTaskList() {
-    const list = state.tasks.map(task => `
-        <div class="flex items-center justify-between p-3 bg-bg-light rounded-xl shadow-inner mb-2 border border-gray-200">
-            <div class="flex-1 min-w-0 mr-4">
-                <p class="font-semibold text-gray-800 truncate">${task.name} <span class="text-xs text-primary ml-2">(${task.cycle === 'daily' ? '每日' : '一次性'})</span></p>
-                <p class="text-sm text-gray-500">點數: ${task.points}</p>
-            </div>
-            <div class="flex space-x-2">
-                <button onclick="showEditTaskModal('${task.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
-                <button onclick="deleteItem('task', '${task.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+// --- CORE LOGIC FUNCTIONS ---
+// (Functions exposed to global scope via window.functionName)
 
-    return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何任務。</p>';
-}
 
-function renderRewardList() {
-    const list = state.rewards.map(reward => `
-        <div class="flex items-center justify-between p-3 bg-bg-light rounded-xl shadow-inner mb-2 border border-gray-200">
-            <div class="flex-1 min-w-0 mr-4">
-                <p class="font-semibold text-gray-800 truncate">${reward.name}</p>
-                <p class="text-sm text-gray-500">兌換點數: ${reward.cost}</p>
-            </div>
-            <div class="flex space-x-2">
-                <button onclick="showEditRewardModal('${reward.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
-                <button onclick="deleteItem('reward', '${reward.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+/** 顯示 Toast 訊息 */
+window.showToast = (message, type = 'success') => {
+    const toastContainer = document.getElementById('toast-container');
+    const color = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-primary';
+    const icon = type === 'success' ? '✔️' : type === 'danger' ? '❌' : 'ℹ️';
 
-    return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何獎勵商品。</p>';
-}
-
-function renderKidList(currentKid) {
-    const list = state.kids.map(kid => `
-        <div class="flex items-center justify-between p-3 bg-white rounded-xl shadow-md mb-2 border-2 ${kid.id === currentKid?.id ? 'border-primary ring-2 ring-primary/50' : 'border-gray-200'}">
-            <div class="flex-1 min-w-0 mr-4">
-                <p class="font-black text-gray-800 truncate">${kid.nickname} ${kid.id === currentKid?.id ? '(當前)' : ''}</p>
-                <p class="text-xs text-gray-500">年齡: ${kid.age || '未填'} / 性別: ${kid.gender || '未填'}</p>
-            </div>
-            <div class="flex space-x-2">
-                <button onclick="switchKid('${kid.id}')" class="text-accent hover:text-teal-600 text-xl">🔄</button>
-                <button onclick="showEditKidModal('${kid.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
-                <button onclick="deleteKid('${kid.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+    const toast = document.createElement('div');
+    toast.className = `p-3 rounded-xl shadow-xl text-white font-medium flex items-center space-x-2 ${color} transition-all duration-300 transform translate-x-full opacity-0`;
+    toast.innerHTML = `<span>${icon}</span><span class="whitespace-nowrap">${message}</span>`;
     
-    return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何小朋友。</p>';
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+        toast.classList.add('translate-x-0', 'opacity-100');
+    }, 50);
+
+    setTimeout(() => {
+        toast.classList.remove('translate-x-0', 'opacity-100');
+        toast.classList.add('translate-x-full', 'opacity-0');
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, 3000);
+};
+
+/** 顯示 Modal (簡化版本，實際邏輯在上方) */
+window.showModal = (title, contentHTML, buttonsHTML = '') => {
+    // 由於 showModal 邏輯較長且已在上方，這裡僅保留呼叫
+    const modalContent = document.getElementById('modal-content');
+    if (!modalContent) return; // Add check for robustness
+
+    state.modalOpen = true;
+    modalContent.innerHTML = `
+        <h3 class="text-2xl font-bold mb-4 text-primary">${title}</h3>
+        <div class="space-y-4">
+            ${contentHTML}
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">取消</button>
+            ${buttonsHTML}
+        </div>
+    `;
+    document.getElementById('modal-container').classList.remove('hidden');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 50);
+};
+
+/** 關閉 Modal (簡化版本，實際邏輯在上方) */
+window.closeModal = () => {
+    const modalContent = document.getElementById('modal-content');
+    if (!modalContent) return; // Add check for robustness
+
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    modalContent.classList.add('scale-95', 'opacity-0');
+    modalContent.addEventListener('transitionend', () => {
+        document.getElementById('modal-container').classList.add('hidden');
+        state.modalOpen = false;
+    }, { once: true });
+};
+
+// ... 其他 window.functionName 都在底部定義，以確保作用域
+
+/** 切換當前小朋友 (已暴露) */
+window.switchKid = (kidId) => {
+    state.currentKidId = kidId;
+    localStorage.setItem('currentKidId', kidId);
+    render();
+    showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
+};
+
+/** 切換 View (已暴露) */
+window.changeView = (view) => {
+    state.currentView = view;
+    console.log(`[App] Switching view to: ${view}`);
+    try {
+        render();
+    } catch(e) {
+        console.error("Render failed during view change:", e);
+        showToast("頁面切換失敗，請檢查 Console 錯誤", 'danger');
+    }
+};
+
+/** 任務完成 (已暴露) */
+window.completeTask = async (taskId, points) => {
+    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
+    // ... (任務完成邏輯)
+    const kidId = state.currentKidId;
+    const kidRef = getKidDocRef(kidId);
+    const now = Date.now();
+    const today = new Date().toDateString();
+
+    try {
+        const task = state.tasks.find(t => t.id === taskId);
+        const kidState = state.kidData[kidId];
+
+        if (task.cycle === 'daily') {
+            const lastCompletionDate = kidState.lastTaskCompletion[taskId] ? new Date(kidState.lastTaskCompletion[taskId]).toDateString() : null;
+            if (lastCompletionDate === today) {
+                return showToast("這個每日任務今天已經完成了喔！", 'info');
+            }
+        }
+
+        await updateDoc(kidRef, {
+            points: (kidState.points || 0) + points,
+            [`lastTaskCompletion.${taskId}`]: now,
+        });
+
+        showToast(`任務完成！獲得 ${points} 點！`, 'success');
+        
+        const newPoints = (kidState.points || 0) + points;
+        if (Math.floor(newPoints / 50) > Math.floor(kidState.points / 50)) {
+            showToast("恭喜！您獲得了一顆精靈蛋！🥚", 'success');
+        }
+
+        render();
+    } catch (error) {
+        console.error("Error completing task:", error);
+        showToast(`完成任務失敗: ${error.message}`, 'danger');
+    }
+};
+
+/** 獎勵兌換 (已暴露) */
+window.redeemReward = async (rewardId, cost) => {
+    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
+    // ... (獎勵兌換邏輯)
+    const kidId = state.currentKidId;
+    const kidRef = getKidDocRef(kidId);
+    const kidState = state.kidData[kidId];
+
+    if ((kidState.points || 0) < cost) {
+        return showToast("點數不足！請多努力完成任務！", 'danger');
+    }
+
+    const reward = state.rewards.find(r => r.id === rewardId);
+    
+    window.showModal(
+        '確認兌換',
+        `<p class="text-lg text-gray-700">您確定要用 <span class="text-secondary font-bold">${cost} 點</span> 兌換「${reward.name}」嗎？</p>`,
+        `<button onclick="confirmRedemption('${rewardId}', ${cost})" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定兌換</button>`
+    );
+};
+
+window.confirmRedemption = async (rewardId, cost) => {
+    closeModal();
+    const kidId = state.currentKidId;
+    const kidRef = getKidDocRef(kidId);
+    const kidState = state.kidData[kidId];
+
+    try {
+        await updateDoc(kidRef, {
+            points: (kidState.points || 0) - cost,
+            redemptions: arrayUnion({ rewardId, timestamp: Date.now(), cost })
+        });
+
+        showToast(`「${state.rewards.find(r => r.id === rewardId)?.name}」兌換成功！請找爸爸/媽媽領取！`, 'success');
+        render();
+    } catch (error) {
+        console.error("Error redeeming reward:", error);
+        showToast(`兌換失敗: ${error.message}`, 'danger');
+    }
 }
 
-// --- Kid CRUD Modals ---
+/** 孵化精靈 (已暴露) */
+const spiritNames = ["太陽獅Leo", "雲朵羊Coco", "星星狐Foxy", "彩虹魚Rainbow", "機器人Robby", "魔法兔Momo", "樹葉龜Turtle", "閃電鳥Bolt"];
+const spiritIcons = ["🦁", "🐑", "🦊", "🌈", "🤖", "🐰", "🐢", "🐦"];
+const getRandomSpirit = () => {
+    const index = Math.floor(Math.random() * spiritNames.length);
+    return { name: spiritNames[index], icon: spiritIcons[index] };
+}
 
+window.hatchSpirit = async () => {
+    if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
+    // ... (孵化邏輯)
+    const kidId = state.currentKidId;
+    const kidRef = getKidDocRef(kidId);
+    const kidState = state.kidData[kidId];
+
+    const pointsNeeded = 50;
+    const numEggs = Math.floor((kidState.points || 0) / pointsNeeded);
+
+    if (numEggs < 1) {
+        return showToast(`點數不足！每 ${pointsNeeded} 點可孵化一顆蛋。`, 'info');
+    }
+
+    const pointsToDeduct = pointsNeeded;
+    const newPoints = (kidState.points || 0) - pointsToDeduct;
+
+    const isSuccess = Math.random() < 0.9;
+    const newSpirit = {
+        id: crypto.randomUUID(),
+        isSuccess: isSuccess,
+        timestamp: Date.now(),
+        ...getRandomSpirit(),
+        customName: isSuccess ? '' : '碎裂的蛋殼'
+    };
+
+    try {
+        await updateDoc(kidRef, {
+            points: newPoints,
+            spirits: arrayUnion(newSpirit)
+        });
+        
+        if (isSuccess) {
+            window.showModal(
+                '🥚 孵化成功！',
+                `<div class="text-center">
+                    <p class="text-6xl mb-4">${newSpirit.icon}</p>
+                    <p class="text-xl font-semibold mb-3">恭喜您孵化出「${newSpirit.name}」！</p>
+                    <label for="customName" class="block text-gray-700">為牠取個可愛的名字吧：</label>
+                    <input type="text" id="customName" placeholder="輸入名字" class="w-full mt-1 p-2 border border-gray-300 rounded-lg">
+                </div>`,
+                `<button onclick="nameSpirit('${newSpirit.id}')" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定命名</button>`
+            );
+        } else {
+            window.showModal(
+                '💔 孵化失敗...',
+                `<div class="text-center">
+                    <p class="text-6xl mb-4">💔</p>
+                    <p class="text-xl font-semibold text-danger">哎呀！這次沒有成功孵化。</p>
+                    <p class="text-gray-600 mt-2">別灰心，再努力累積點數吧！</p>
+                </div>`,
+                `<button onclick="closeModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">我知道了</button>`
+            );
+        }
+        render();
+    } catch (error) {
+        console.error("Error hatching spirit:", error);
+        showToast(`孵化失敗: ${error.message}`, 'danger');
+    }
+};
+
+/** 命名精靈 (已暴露) */
+window.nameSpirit = async (spiritId) => {
+    const customName = document.getElementById('customName').value.trim();
+    if (!customName) {
+        return showToast("名字不能為空！", 'danger');
+    }
+
+    const kidId = state.currentKidId;
+    const kidRef = getKidDocRef(kidId);
+    const kidState = state.kidData[kidId];
+
+    try {
+        const updatedSpirits = kidState.spirits.map(s => 
+            s.id === spiritId ? { ...s, customName: customName } : s
+        );
+        
+        await updateDoc(kidRef, { spirits: updatedSpirits });
+        showToast(`精靈已命名為「${customName}」！`, 'success');
+        closeModal();
+        render();
+    } catch (error) {
+        console.error("Error naming spirit:", error);
+        showToast(`命名失敗: ${error.message}`, 'danger');
+    }
+};
+
+/** 顯示小朋友切換 Modal (已暴露) */
+window.showKidSwitchModal = () => {
+    const contentHTML = state.kids.map(kid => `
+        <button onclick="switchKidAndCloseModal('${kid.id}')" class="w-full text-left p-4 rounded-xl border-2 transition-all ${kid.id === state.currentKidId ? 'bg-primary text-white border-primary shadow-lg' : 'bg-bg-light hover:bg-gray-100 border-gray-200'}">
+            <span class="font-bold text-lg">${kid.nickname}</span> ${kid.id === state.currentKidId ? ' (當前 👑)' : ''}
+        </button>
+    `).join('');
+
+    showModal('切換小朋友', contentHTML);
+}
+
+/** 切換小朋友並關閉 Modal (已暴露) */
+window.switchKidAndCloseModal = (kidId) => {
+    switchKid(kidId);
+    closeModal();
+}
+
+/** 顯示編輯小朋友 Modal (已暴露) */
 window.showEditKidModal = (kidId = null) => {
     const isEdit = !!kidId;
     const kid = isEdit ? state.kids.find(k => k.id === kidId) : {};
@@ -780,6 +596,7 @@ window.showEditKidModal = (kidId = null) => {
     showModal(title, contentHTML, saveButton);
 };
 
+/** 儲存小朋友資料 (已暴露) */
 window.saveKid = async (kidId = null) => {
     const nickname = document.getElementById('kidNickname').value.trim();
     const age = document.getElementById('kidAge').value.trim();
@@ -804,6 +621,7 @@ window.saveKid = async (kidId = null) => {
     }
 };
 
+/** 刪除小朋友資料 (已暴露) */
 window.deleteKid = async (kidId) => {
     const confirmed = confirm(`確定要刪除這位小朋友及其所有數據嗎？`);
     if (confirmed) {
@@ -823,23 +641,7 @@ window.deleteKid = async (kidId) => {
     }
 };
 
-window.showKidSwitchModal = () => {
-    const contentHTML = state.kids.map(kid => `
-        <button onclick="switchKidAndCloseModal('${kid.id}')" class="w-full text-left p-4 rounded-xl border-2 transition-all ${kid.id === state.currentKidId ? 'bg-primary text-white border-primary shadow-lg' : 'bg-bg-light hover:bg-gray-100 border-gray-200'}">
-            <span class="font-bold text-lg">${kid.nickname}</span> ${kid.id === state.currentKidId ? ' (當前 👑)' : ''}
-        </button>
-    `).join('');
-
-    showModal('切換小朋友', contentHTML);
-}
-
-window.switchKidAndCloseModal = (kidId) => {
-    switchKid(kidId);
-    closeModal();
-}
-
-// --- Task/Reward Modals ---
-
+/** 顯示編輯任務 Modal (已暴露) */
 window.showEditTaskModal = (taskId = null) => {
     const isEdit = !!taskId;
     const task = isEdit ? state.tasks.find(t => t.id === taskId) : { cycle: 'daily', points: 10 };
@@ -869,6 +671,7 @@ window.showEditTaskModal = (taskId = null) => {
     showModal(title, contentHTML, saveButton);
 };
 
+/** 儲存任務表單 (已暴露) */
 window.saveTaskForm = (taskId) => {
     const data = {
         name: document.getElementById('taskName').value.trim(),
@@ -880,6 +683,7 @@ window.saveTaskForm = (taskId) => {
     window.saveItem('task', data, taskId);
 };
 
+/** 顯示編輯獎勵 Modal (已暴露) */
 window.showEditRewardModal = (rewardId = null) => {
     const isEdit = !!rewardId;
     const reward = isEdit ? state.rewards.find(r => r.id === rewardId) : { cost: 100 };
@@ -902,6 +706,7 @@ window.showEditRewardModal = (rewardId = null) => {
     showModal(title, contentHTML, saveButton);
 };
 
+/** 儲存獎勵表單 (已暴露) */
 window.saveRewardForm = (rewardId) => {
     const data = {
         name: document.getElementById('rewardName').value.trim(),
@@ -912,7 +717,191 @@ window.saveRewardForm = (rewardId) => {
     window.saveItem('reward', data, rewardId);
 };
 
-// --- Firebase Initialization ---
+
+// --- INITIALIZATION AND LISTENERS ---
+
+async function getKidState(kidId) {
+    // ... (獲取 Kid State 邏輯)
+    const kidDoc = await getDoc(getKidDocRef(kidId));
+    if (kidDoc.exists()) {
+        return kidDoc.data();
+    } else {
+        const initialData = {
+            points: 0,
+            spirits: [],
+            lastTaskCompletion: {} 
+        };
+        await setDoc(getKidDocRef(kidId), initialData);
+        return initialData;
+    }
+}
+
+async function preloadInitialData() {
+    // ... (預載數據邏輯)
+    if (!db) return;
+
+    const taskQuery = await getDocs(getTaskCollectionRef());
+    const rewardQuery = await getDocs(getRewardCollectionRef());
+    const batch = writeBatch(db);
+    let hasNewData = false;
+
+    if (taskQuery.empty) {
+        initialTasks.forEach(task => {
+            batch.set(doc(getTaskCollectionRef()), task);
+        });
+        hasNewData = true;
+    }
+
+    if (rewardQuery.empty) {
+        initialRewards.forEach(reward => {
+            batch.set(doc(getRewardCollectionRef()), reward);
+        });
+        hasNewData = true;
+    }
+
+    if (hasNewData) {
+        await batch.commit();
+        showToast("預設任務與獎勵已載入！", 'info');
+    }
+}
+
+function setupListeners() {
+    // ... (設置監聽器邏輯)
+    onSnapshot(getKidCollectionRef(), (snapshot) => {
+        state.kids = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (!state.currentKidId || !state.kids.some(k => k.id === state.currentKidId)) {
+            const savedKidId = localStorage.getItem('currentKidId');
+            if (savedKidId && state.kids.some(k => k.id === savedKidId)) {
+                state.currentKidId = savedKidId;
+            } else if (state.kids.length > 0) {
+                state.currentKidId = state.kids[0].id;
+                state.currentView = 'tasks'; 
+            } else {
+                state.currentKidId = null;
+                state.currentView = 'settings'; 
+            }
+        }
+        render();
+    });
+
+    onSnapshot(getTaskCollectionRef(), (snapshot) => {
+        state.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        render();
+    });
+
+    onSnapshot(getRewardCollectionRef(), (snapshot) => {
+        state.rewards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        render();
+    });
+
+    onSnapshot(collection(db, `artifacts/${appId}/users/${userId}/kid_state`), (snapshot) => {
+        state.kidData = {};
+        snapshot.docs.forEach(doc => {
+            state.kidData[doc.id] = doc.data();
+        });
+        render();
+    });
+}
+
+
+/** 渲染主 App 介面 (核心渲染函數) */
+window.render = () => {
+    try {
+        if (!state.isAuthReady) {
+            console.log("[Render] Auth not ready, skipping render.");
+            return;
+        }
+
+        const content = document.getElementById('content');
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+        if (content) content.classList.remove('hidden');
+
+        renderHeader();
+        renderNavBar();
+        
+        const viewContent = document.getElementById('view-content');
+        viewContent.innerHTML = '';
+
+        const isInitialSetup = state.kids.length === 0;
+
+        if (isInitialSetup && state.currentView !== 'settings') {
+            viewContent.innerHTML = `
+                <div class="text-center p-10 bg-pink-light/50 rounded-3xl mt-8 shadow-inner border border-pink-light">
+                    <p class="text-3xl font-bold text-danger mb-4">🚫 請先設定小朋友資料</p>
+                    <p class="text-gray-700 font-medium">請點擊右下角的「設定 ⚙️」頁面新增小朋友，才能使用此功能喔！</p>
+                </div>
+            `;
+            return;
+        }
+
+        switch (state.currentView) {
+            case 'tasks':
+                viewContent.appendChild(renderTasks());
+                break;
+            case 'shop':
+                viewContent.appendChild(renderShop());
+                break;
+            case 'spirits':
+                viewContent.appendChild(renderSpirits());
+                break;
+            case 'settings':
+                viewContent.appendChild(renderSettings(isInitialSetup));
+                break;
+            default:
+                console.warn(`Unknown view: ${state.currentView}, defaulting to settings.`);
+                state.currentView = 'settings';
+                viewContent.appendChild(renderSettings(isInitialSetup));
+        }
+    } catch (e) {
+        console.error("Fatal Error during render cycle:", e);
+        showToast("應用程式渲染失敗，請檢查 Console", 'danger');
+    }
+};
+
+/** 渲染 Header (小朋友切換) */
+function renderHeader() {
+    const currentKid = state.kids.find(k => k.id === state.currentKidId);
+    const kidInfo = document.getElementById('kid-info');
+    
+    if (!kidInfo) return;
+
+    if (!currentKid) {
+        kidInfo.innerHTML = `<span class="text-sm">未選定小朋友</span>`;
+        return;
+    }
+
+    const currentKidNickname = currentKid.nickname || '未命名小朋友';
+
+    kidInfo.innerHTML = `
+        <div class="text-sm font-medium">當前：${currentKidNickname}</div>
+        <button onclick="showKidSwitchModal()" class="bg-accent/50 text-white text-xs font-bold px-3 py-1 rounded-full hover:bg-accent transition-colors shadow-md">
+            切換 🔄
+        </button>
+    `;
+}
+
+/** 渲染底部導覽列 */
+function renderNavBar() {
+    const navBar = document.getElementById('nav-bar');
+    if (!navBar) return;
+
+    const navItems = [
+        { id: 'tasks', icon: '📅', label: '任務牆' },
+        { id: 'shop', icon: '🎁', label: '獎勵商城' },
+        { id: 'spirits', icon: '🥚', label: '精靈蛋屋' },
+        { id: 'settings', icon: '⚙️', label: '設定' }
+    ];
+
+    navBar.innerHTML = navItems.map(item => `
+        <button onclick="changeView('${item.id}')" class="flex flex-col items-center p-2 transition-colors ${state.currentView === item.id ? 'text-primary font-bold' : 'text-gray-500 hover:text-primary'}">
+            <span class="text-2xl">${item.icon}</span>
+            <span class="text-xs mt-1">${item.label}</span>
+        </button>
+    `).join('');
+}
+
 
 async function initApp() {
     try {
@@ -920,8 +909,8 @@ async function initApp() {
         db = getFirestore(app);
         auth = getAuth(app);
         
-        // 執行登入：由於外部運行，使用匿名登入
         try {
+            console.log("[Auth] Attempting anonymous sign-in...");
             await signInAnonymously(auth);
         } catch(authError) {
              console.error("Firebase Authentication Failed:", authError);
@@ -933,6 +922,7 @@ async function initApp() {
             if (user) {
                 userId = user.uid;
                 state.isAuthReady = true;
+                console.log(`[Auth] User logged in: ${userId}`);
                 
                 preloadInitialData();
                 setupListeners();
@@ -949,7 +939,6 @@ async function initApp() {
 
     } catch (error) {
         console.error("App Initialization Fatal Error:", error);
-        // 顯示初始化錯誤，提供除錯提示
         document.getElementById('loading-screen').innerHTML = `
             <div class="text-center p-8 bg-white rounded-xl shadow-lg">
                 <p class="text-xl font-bold text-danger">應用程式初始化失敗 (App Error)</p>
@@ -957,7 +946,7 @@ async function initApp() {
                 <p class="mt-4 text-sm font-bold text-primary">除錯提示:</p>
                 <ul class="list-disc list-inside text-left text-sm text-gray-600 mx-auto w-fit">
                     <li>請檢查 **style.css** 和 **script.js** 檔案是否已上傳到 GitHub。</li>
-                    <li>請確認您的 **Firestore 安全規則**允許寫入操作（因為 App 會嘗試儲存初始數據）。</li>
+                    <li>請確認您的 **Firestore 安全規則**允許寫入操作。</li>
                 </ul>
             </div>
         `;
