@@ -61,6 +61,10 @@ function getUserRootDoc() {
 export function getKidCollectionRef() {
   return collection(getUserRootDoc(), "kids");
 }
+export function getKidDocRef(kidId) {
+  // Backward-compatible alias used by settings.js
+  return doc(getUserRootDoc(), "kids", kidId);
+}
 export function getTaskCollectionRef() {
   return collection(getUserRootDoc(), "tasks");
 }
