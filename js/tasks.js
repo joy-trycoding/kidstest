@@ -1,4 +1,4 @@
-// js/tasks.js (啟動邏輯修正版)
+// js/tasks.js (修正多餘的 "}")
 
 import { getKidStateDocRef, state, showToast, showModal, initPage } from "./base.js"; 
 import { updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";

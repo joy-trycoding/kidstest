@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 // --- 全域狀態 (State) ---
-const state = { // 🚨 關鍵修正：定義時不使用 export
+const state = { 
     isAuthReady: false,
     kids: [], // 小朋友清單
     currentKidId: localStorage.getItem('currentKidId') || null, // 當前選定的小朋友 ID
@@ -61,6 +61,8 @@ function getRewardCollectionRef() {
 function getKidStateDocRef(kidId) { 
     return doc(getUserArtifactsRef(), 'kid_states', kidId);
 }
+// 為了兼容 tasks.js 中可能存在的 getKidDocRef 匯入
+const getKidDocRef = getKidStateDocRef; 
 
 // --- Data Preload ---
 const initialTasks = [
@@ -395,5 +397,6 @@ export {
     getTaskCollectionRef, 
     getRewardCollectionRef, 
     getKidStateDocRef, 
+    getKidDocRef, // 🌟 新增：兼容 tasks.js 中可能存在的 getKidDocRef 匯入
     initPage 
 };
