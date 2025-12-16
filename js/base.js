@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 // --- 全域狀態 (State) ---
-const state = { // 🚨 移除 export 關鍵字
+export const state = { // 第一次導出
     isAuthReady: false,
     kids: [], // 小朋友清單
     currentKidId: localStorage.getItem('currentKidId') || null, // 當前選定的小朋友 ID
@@ -43,22 +43,22 @@ function getUserArtifactsRef() {
 }
 
 /** 取得 Kids 集合參考 */
-function getKidCollectionRef() { 
+export function getKidCollectionRef() {
     return collection(getUserArtifactsRef(), 'kids');
 }
 
 /** 取得 Tasks 集合參考 */
-function getTaskCollectionRef() { 
+export function getTaskCollectionRef() {
     return collection(getUserArtifactsRef(), 'tasks');
 }
 
 /** 取得 Rewards 集合參考 */
-function getRewardCollectionRef() { 
+export function getRewardCollectionRef() {
     return collection(getUserArtifactsRef(), 'rewards');
 }
 
 /** 取得特定小朋友的狀態文件參考 */
-function getKidStateDocRef(kidId) { 
+export function getKidStateDocRef(kidId) {
     return doc(getUserArtifactsRef(), 'kid_states', kidId);
 }
 
@@ -82,7 +82,7 @@ const initialRewards = [
 // --- UI 輔助函式 (Toast & Modal) ---
 
 /** 顯示 Toast 提示訊息 */
-function showToast(message, type = 'success') { // 🚨 移除 export
+export function showToast(message, type = 'success') {
     const toastContainer = document.getElementById('toast-container');
     const bgColor = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-secondary';
     
@@ -118,7 +118,7 @@ function closeModal() {
 window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
 
 /** 顯示 Modal */
-function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 🚨 移除 export
+export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) {
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
@@ -146,7 +146,7 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
 // --- Kid Switch Functions ---
 
 /** 切換當前小朋友 (導出) */
-const switchKid = (kidId) => { // 🚨 移除 export
+export const switchKid = (kidId) => {
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
@@ -288,113 +288,96 @@ function setupListeners(pageViewName) {
 // --- 核心初始化與狀態設定 (initPage) ---
 
 /** 處理 Firebase 登入並初始化數據監聽 */
-function initPage(pageRenderFunc, pageViewName) { // 🚨 移除 export, 讓它在底部統一匯出
+export async function initPage(pageRenderFunc, pageViewName) {
     renderCallback = pageRenderFunc;
 
     const loadingScreen = document.getElementById('loading-screen');
     const content = document.getElementById('content');
 
-    // 將所有非同步邏輯包裹在一個立即執行的 async 函式中
-    (async () => {
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
 
-            await signInAnonymously(auth);
+        await signInAnonymously(auth);
 
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    state.isAuthReady = true;
-                    console.log(`[Base] Auth Success. User ID: ${userId}`);
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                state.isAuthReady = true;
+                console.log(`[Base] Auth Success. User ID: ${userId}`);
 
-                    await preloadInitialData();
+                await preloadInitialData();
 
-                    // 設置持續監聽器
-                    setupListeners(pageViewName);
+                // 設置持續監聽器
+                setupListeners(pageViewName);
 
-                    // 🌟 關鍵修正：使用一次性監聽器確保首次數據同步完成
-                    const unsubscribeCheck = onSnapshot(getKidCollectionRef(), (snapshot) => {
-                        const hasKids = snapshot.size > 0;
+                // 🌟 關鍵修正：使用一次性監聽器確保首次數據同步完成
+                const unsubscribeCheck = onSnapshot(getKidCollectionRef(), (snapshot) => {
+                    const hasKids = snapshot.size > 0;
 
-                        if (!hasKids && pageViewName !== 'settings') {
-                            // 首次載入且沒有小朋友，強制跳轉到設定頁面
-                            console.log("[Base] No kids found on first sync. Redirecting to settings.");
-                            unsubscribeCheck();
-                            window.location.replace('settings.html');
-                            return;
-                        }
-
-                        // 數據已同步且通過檢查，隱藏載入畫面並顯示內容
-                        if (loadingScreen) loadingScreen.classList.add('hidden');
-                        if (content) content.classList.remove('hidden');
-                        console.log(`[Base] Initial render complete for view: ${pageViewName}`);
-
+                    if (!hasKids && pageViewName !== 'settings') {
+                        // 首次載入且沒有小朋友，強制跳轉到設定頁面
+                        console.log("[Base] No kids found on first sync. Redirecting to settings.");
                         unsubscribeCheck();
+                        window.location.replace('settings.html');
+                        return;
+                    }
 
-                    }, (error) => {
-                        // 如果第一次同步就失敗 (例如，Firestore 規則錯誤)，則顯示錯誤
-                        console.error("[Base] Initial Kids Sync Failed:", error);
-                        unsubscribeCheck();
-                        if (loadingScreen) loadingScreen.classList.add('hidden');
-                        if (content) {
-                            content.classList.remove('hidden');
-                            content.innerHTML = `<p class="text-xl font-bold text-danger">數據同步失敗，請檢查 Firestore 規則。</p>`;
-                        }
-                    });
+                    // 數據已同步且通過檢查，隱藏載入畫面並顯示內容
+                    if (loadingScreen) loadingScreen.classList.add('hidden');
+                    if (content) content.classList.remove('hidden');
+                    console.log(`[Base] Initial render complete for view: ${pageViewName}`);
 
-                } else {
-                    // Auth Failed UI
-                    console.error("[Base] Firebase Authentication Failed. User object is null.");
+                    unsubscribeCheck();
 
-                    if (loadingScreen) {
-                        loadingScreen.classList.add('hidden');
-                        if (content) {
-                            content.classList.remove('hidden');
-                            content.innerHTML = `
-                                <div class="text-center p-10 bg-danger/10 rounded-3xl mt-8 shadow-inner border border-danger">
-                                    <p class="text-3xl font-bold text-danger mb-4">🚫 Firebase 連線失敗</p>
-                                    <p class="text-gray-700 font-medium">請確認您的 Firebase 專案已啟用 **匿名登入 (Anonymous)** 功能。</p>
-                                </div>
-                            `;
-                        }
+                }, (error) => {
+                    // 如果第一次同步就失敗 (例如，Firestore 規則錯誤)，則顯示錯誤
+                    console.error("[Base] Initial Kids Sync Failed:", error);
+                    unsubscribeCheck();
+                    if (loadingScreen) loadingScreen.classList.add('hidden');
+                    if (content) {
+                         content.classList.remove('hidden');
+                         content.innerHTML = `<p class="text-xl font-bold text-danger">數據同步失敗，請檢查 Firestore 規則。</p>`;
+                    }
+                });
+
+            } else {
+                // Auth Failed UI
+                console.error("[Base] Firebase Authentication Failed. User object is null.");
+
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden');
+                    if (content) {
+                         content.classList.remove('hidden');
+                         content.innerHTML = `
+                            <div class="text-center p-10 bg-danger/10 rounded-3xl mt-8 shadow-inner border border-danger">
+                                <p class="text-3xl font-bold text-danger mb-4">🚫 Firebase 連線失敗</p>
+                                <p class="text-gray-700 font-medium">請確認您的 Firebase 專案已啟用 **匿名登入 (Anonymous)** 功能。</p>
+                            </div>
+                        `;
                     }
                 }
-            });
-        } catch (error) {
-            // 發生在 Firebase 初始化或 await signInAnonymously 步驟的致命錯誤
-            console.error("App Initialization Fatal Error:", error);
-            if (loadingScreen) loadingScreen.classList.add('hidden');
-
-            if (content) {
-                content.classList.remove('hidden');
-                content.innerHTML = `
-                    <div class="text-center p-8 bg-danger/10 rounded-xl shadow-lg mt-8">
-                        <p class="text-xl font-bold text-danger">應用程式初始化失敗 (Fatal Error)</p>
-                        <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
-                    </div>
-                `;
             }
+        });
+    } catch (error) {
+        // 發生在 Firebase 初始化或 await signInAnonymously 步驟的致命錯誤
+        console.error("App Initialization Fatal Error:", error);
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+
+        if (content) {
+            content.classList.remove('hidden');
+            content.innerHTML = `
+                <div class="text-center p-8 bg-danger/10 rounded-xl shadow-lg mt-8">
+                    <p class="text-xl font-bold text-danger">應用程式初始化失敗 (Fatal Error)</p>
+                    <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
+                </div>
+            `;
         }
-    })(); // 立即執行
+    }
 }
 
 // --- 供其他檔案使用的匯出函式 (Exports) ---
 
-// 匯出常用的 Firestore 函式
+// 匯出常用的 Firestore 函式 (已在定義時未加 export 的，在這裡統一匯出)
 export { getFirestore, getDoc, setDoc, writeBatch, arrayUnion, getDocs, doc, collection };
-
-// 匯出功能函式和集合參考 (統一匯出，確保不重複)
-export { 
-    state, 
-    showToast, 
-    showModal, 
-    switchKid, 
-    getKidCollectionRef, 
-    getTaskCollectionRef, 
-    getRewardCollectionRef, 
-    getKidStateDocRef, 
-    initPage 
-};
-
