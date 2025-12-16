@@ -1,4 +1,4 @@
-// js/base.js
+// js/base.js (FINAL VERSION with TTS and UI Sync Fixes)
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -12,6 +12,7 @@ setLogLevel('Debug');
 const appId = 'autonomy-helper-mock-id'; // 應用程式識別符
 let app, db, auth, userId;
 let renderCallback = () => {}; // 當前頁面渲染函式的回呼
+let currentSpeech = null; // 儲存當前的 SpeechSynthesisUtterance
 
 // 模擬的 Firebase 配置 (請替換為您自己的配置)
 const firebaseConfig = {
@@ -30,7 +31,8 @@ const state = {
     currentKidId: localStorage.getItem('currentKidId') || null, // 當前選定的小朋友 ID
     tasks: [], // 任務清單
     rewards: [], // 獎勵清單
-    kidData: {} // 存放每個小朋友的點數、精靈等狀態 { kidId: { points: 100, spirits: [...] } }
+    kidData: {}, // 存放每個小朋友的點數、精靈等狀態 { kidId: { points: 100, spirits: [...] } }
+    isSpeaking: false // 新增語音狀態
 };
 
 
@@ -80,6 +82,62 @@ const initialRewards = [
     { name: "戶外活動", description: "週末全家去公園或郊遊一次。", cost: 400 }
 ];
 
+// --- 語音輔助函式 (Text-to-Speech) ---
+
+/** 停止當前語音朗讀 */
+function stopSpeaking() {
+    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+    }
+    state.isSpeaking = false;
+    // 立即更新 UI 以清除語音狀態
+    if (renderCallback) renderCallback();
+}
+
+/** 朗讀文字 */
+function speakText(text) {
+    stopSpeaking(); // 停止先前的語音
+
+    if (!('speechSynthesis' in window)) {
+        showToast("您的瀏覽器不支持語音朗讀功能！", 'danger');
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // 嘗試設定中文語音
+    const voices = window.speechSynthesis.getVoices();
+    const chineseVoice = voices.find(voice => voice.lang.startsWith('zh-'));
+    if (chineseVoice) {
+        utterance.voice = chineseVoice;
+    } else {
+        // 如果找不到中文，使用預設語音並嘗試調整語言
+        utterance.lang = 'zh-TW'; 
+    }
+    
+    utterance.rate = 1.0; // 語速
+    utterance.pitch = 1.0; // 音高
+
+    utterance.onstart = () => {
+        state.isSpeaking = true;
+        if (renderCallback) renderCallback();
+    };
+
+    utterance.onend = () => {
+        state.isSpeaking = false;
+        if (renderCallback) renderCallback();
+    };
+    
+    utterance.onerror = (event) => {
+        console.error('SpeechSynthesis Utterance Error:', event);
+        state.isSpeaking = false;
+        if (renderCallback) renderCallback();
+    };
+
+    window.speechSynthesis.speak(utterance);
+    currentSpeech = utterance;
+}
+
 // --- UI 輔助函式 (Toast & Modal) ---
 
 /** 顯示 Toast 提示訊息 */
@@ -110,7 +168,6 @@ function closeModal() {
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
-    // 確保元素存在
     if (!modalContainer || !modalContent) return;
 
     modalContent.classList.add('scale-95', 'opacity-0');
@@ -118,8 +175,10 @@ function closeModal() {
     modalContent.addEventListener('transitionend', () => {
         modalContainer.classList.add('hidden');
     }, { once: true });
+    
+    stopSpeaking(); // 關閉 Modal 時停止語音
 }
-window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
+window.closeModal = closeModal; 
 
 /** 顯示 Modal */
 function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { 
@@ -128,8 +187,9 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
     
     // 1. 處理自定義按鈕內容
     let buttonHtml;
-    if (confirmText.startsWith('<button')) {
-        // 如果傳入的是自定義按鈕 HTML，則直接使用，但不生成默認取消按鈕
+    // 檢查 confirmText 是否包含 HTML 標籤 (例如 <button>)
+    if (confirmText.startsWith('<button')) { 
+        // 如果傳入的是自定義按鈕 HTML，則直接使用，並在前面加上「取消」按鈕
         buttonHtml = `
             <div class="flex justify-end space-x-3">
                 <button onclick="window.closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition duration-150">取消</button>
@@ -167,9 +227,7 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
         confirmBtn.onclick = () => {
             onConfirm();
             // 如果 onConfirm 邏輯沒有主動關閉，這裡執行關閉
-            if (onConfirm.toString().indexOf('closeModal') === -1) {
-                 window.closeModal();
-            }
+            window.closeModal(); // 統一由 showModal 關閉
         };
     }
 }
@@ -182,10 +240,14 @@ const switchKid = (kidId) => {
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
-    // 關鍵修正：當 currentKidId 變化時，我們需要明確觸發 UI 更新
+    
+    // 關鍵修正：立即停止語音 (如果正在朗讀)
+    stopSpeaking(); 
+    
+    // 關鍵修正：確保 Header 和當前頁面內容立即重新渲染
+    // 讓狀態更新生效後，調用 renderCallback 觸發當前頁面內容更新
     if (renderCallback) {
-        // 確保在下一個執行週期觸發，讓狀態更新生效
-        setTimeout(renderCallback, 50); 
+        renderCallback(); 
     }
 };
 window.switchKid = switchKid; // 確保 HTML 中 onclick 仍可呼叫
@@ -428,6 +490,8 @@ export {
     showModal, 
     closeModal, 
     switchKid, 
+    speakText, // 🌟 新增：匯出語音函式
+    stopSpeaking, // 🌟 新增：匯出停止語音函式
     getKidCollectionRef, 
     getTaskCollectionRef, 
     getRewardCollectionRef, 
