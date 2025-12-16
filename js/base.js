@@ -83,7 +83,7 @@ const initialRewards = [
 // --- UI 輔助函式 (Toast & Modal) ---
 
 /** 顯示 Toast 提示訊息 */
-export function showToast(message, type = 'success') {
+export function showToast(message, type = 'success') { // 這裡已經是 export
     const toastContainer = document.getElementById('toast-container');
     const bgColor = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-secondary';
     
@@ -119,7 +119,7 @@ function closeModal() {
 window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
 
 /** 顯示 Modal */
-export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 這裡使用 export
+export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 這裡已經是 export
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
@@ -143,7 +143,6 @@ export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = (
         window.closeModal();
     };
 }
-// 移除 window.showModal = showModal; 避免與 export 衝突
 
 // --- Kid Switch Functions ---
 
@@ -383,5 +382,5 @@ export async function initPage(pageRenderFunc, pageViewName) {
 
 // 匯出常用的 Firestore 函式
 export { getFirestore, getDoc, setDoc, writeBatch, arrayUnion, getDocs, doc, collection };
-// 匯出狀態
-export { state, showToast, showModal };
+// 匯出狀態 (showToast, showModal, switchKid 已經在定義時導出，這裡只需匯出 state)
+export { state };
