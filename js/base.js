@@ -1,18 +1,30 @@
-// js/base.js
+// js/base.js (final cohesive version)
+// Goals:
+// - Stable ES module exports
+// - Anonymous auth + Firestore listeners
+// - Seed default tasks & rewards if empty
+// - Multi-kid support with switchKid()
+// - Header/nav render (includes Scores link)
+// - Background music controls
+// - Speech helpers (speakText/stopSpeaking)
+// - Debounced render to avoid "render storms"
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore,
   doc,
-  setDoc as fsSetDoc,
-  onSnapshot,
   collection,
-  getDoc as fsGetDoc,
-  getDocs as fsGetDocs,
+  addDoc,
+  setDoc as fsSetDoc,
+  getDocs,
   writeBatch,
-  arrayUnion,
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+/* =====================
+   Firebase config
+===================== */
 const firebaseConfig = {
   apiKey: "AIzaSyDZ6A9haTwY6dCa93Tsa1X63ehzx-xe_FE",
   authDomain: "kidstest-99c7f.firebaseapp.com",
@@ -23,11 +35,12 @@ const firebaseConfig = {
 };
 
 const appId = "autonomy-helper-mock-id";
-let app = null;
-let db = null;
-let auth = null;
-let userId = null;
 
+let app, db, auth, userId;
+
+/* =====================
+   Global state
+===================== */
 export const state = {
   isAuthReady: false,
   currentView: null,
@@ -35,145 +48,299 @@ export const state = {
   currentKidId: localStorage.getItem("currentKidId") || null,
   tasks: [],
   rewards: [],
-  kidData: {}, 
+  kidData: {}, // kid_states map by kidId
 };
 
+/* =====================
+   Firestore refs
+===================== */
 function getUserRootDoc() {
-  if (!db || !userId) throw new Error("Firestore not initialized.");
+  if (!db || !userId) throw new Error("Firestore not ready");
   return doc(db, "artifacts", appId, "users", userId);
 }
 
-export function getKidCollectionRef() { return collection(getUserRootDoc(), "kids"); }
-export function getKidDocRef(kidId) { return doc(getUserRootDoc(), "kids", kidId); }
-export function getTaskCollectionRef() { return collection(getUserRootDoc(), "tasks"); }
-export function getRewardCollectionRef() { return collection(getUserRootDoc(), "rewards"); }
-export function getKidStateDocRef(kidId) { return doc(getUserRootDoc(), "kid_states", kidId); }
-
-export function showToast(message, type = "success") {
-  const toastContainer = document.getElementById("toast-container");
-  if (!toastContainer) return;
-  const bgColor = type === "success" ? "bg-success" : type === "danger" ? "bg-danger" : "bg-secondary";
-  const toast = document.createElement("div");
-  toast.className = `p-4 rounded-xl shadow-lg text-white font-semibold transition-all duration-300 transform translate-x-full ${bgColor}`;
-  toast.innerHTML = message;
-  toastContainer.appendChild(toast);
-  setTimeout(() => toast.classList.remove("translate-x-full"), 10);
-  setTimeout(() => {
-    toast.classList.add("opacity-0", "translate-x-full");
-    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
-  }, 2600);
+export function getKidCollectionRef() {
+  return collection(getUserRootDoc(), "kids");
+}
+export function getKidDocRef(kidId) {
+  return doc(getUserRootDoc(), "kids", kidId);
+}
+export function getTaskCollectionRef() {
+  return collection(getUserRootDoc(), "tasks");
+}
+export function getRewardCollectionRef() {
+  return collection(getUserRootDoc(), "rewards");
+}
+export function getKidStateDocRef(kidId) {
+  return doc(getUserRootDoc(), "kid_states", kidId);
 }
 
+/* =====================
+   UI: Toast
+===================== */
+export function showToast(message, type = "success") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const div = document.createElement("div");
+  div.className =
+    "p-4 mb-2 rounded-xl text-white shadow transition " +
+    (type === "danger" ? "bg-red-500" : type === "info" ? "bg-sky-500" : "bg-green-600");
+  div.innerText = message;
+  container.appendChild(div);
+  setTimeout(() => div.remove(), 2600);
+}
+
+/* =====================
+   UI: Modal
+===================== */
 export function closeModal() {
-  const modalContainer = document.getElementById("modal-container");
-  const modalContent = document.getElementById("modal-content");
-  if (!modalContainer || !modalContent) return;
-  modalContent.classList.add("scale-95", "opacity-0");
-  modalContent.addEventListener("transitionend", () => {
-    modalContainer.classList.add("hidden");
-    modalContent.innerHTML = "";
-  }, { once: true });
+  const m = document.getElementById("modal-container");
+  const c = document.getElementById("modal-content");
+  if (!m || !c) return;
+  m.classList.add("hidden");
+  c.innerHTML = "";
 }
 window.closeModal = closeModal;
 
-export function showModal(title, bodyHtml, confirmText = "確定", onConfirm = () => {}, options = {}) {
-  const { cancelText = "取消", showCancel = true } = options;
-  const modalContainer = document.getElementById("modal-container");
-  const modalContent = document.getElementById("modal-content");
-  if (!modalContainer || !modalContent) return;
-  const cancelBtnHtml = showCancel ? `<button id="modal-cancel-btn" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl">${cancelText}</button>` : "";
-  modalContent.innerHTML = `
-    <h3 class="text-2xl font-bold text-primary mb-4 border-b pb-2">${title}</h3>
-    <div class="modal-body mb-6 text-gray-700">${bodyHtml}</div>
-    <div class="flex justify-end space-x-3">
-      ${cancelBtnHtml}
-      <button id="modal-confirm-btn" class="px-4 py-2 ${confirmText === "刪除" ? "bg-danger" : "bg-primary"} text-white font-semibold rounded-xl">${confirmText}</button>
-    </div>`;
-  modalContainer.classList.remove("hidden");
-  setTimeout(() => modalContent.classList.remove("scale-95", "opacity-0"), 10);
-  document.getElementById("modal-confirm-btn").onclick = onConfirm;
-  if (showCancel) document.getElementById("modal-cancel-btn").onclick = () => closeModal();
+export function showModal(title, bodyHtml, confirmText = "OK", onConfirm = () => closeModal()) {
+  const m = document.getElementById("modal-container");
+  const c = document.getElementById("modal-content");
+  if (!m || !c) return;
+
+  c.innerHTML = `
+    <h3 class="text-xl font-black mb-4">${title}</h3>
+    <div class="mb-6">${bodyHtml}</div>
+    <div class="flex justify-end gap-3">
+      <button id="modal-cancel" class="px-4 py-2 bg-gray-200 rounded-xl">關閉</button>
+      <button id="modal-ok" class="px-4 py-2 bg-primary text-white rounded-xl">${confirmText}</button>
+    </div>
+  `;
+  m.classList.remove("hidden");
+  document.getElementById("modal-cancel").onclick = closeModal;
+  document.getElementById("modal-ok").onclick = onConfirm;
 }
 
-export function speakText(text) {
+/* =====================
+   Speech
+===================== */
+export function stopSpeaking() {
+  try {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  } catch {}
+}
+
+export function speakText(text, opts = {}) {
   try {
     if (!window.speechSynthesis || !text) return;
     const u = new SpeechSynthesisUtterance(String(text));
-    u.lang = "zh-TW"; u.rate = 0.95; u.pitch = 1.05;
+    u.lang = opts.lang || "zh-TW";
+    u.rate = opts.rate ?? 1;
+    u.pitch = opts.pitch ?? 1;
+    u.volume = opts.volume ?? 1;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch {}
 }
 
-let _bgm = null;
-export function isBgmEnabled() { return localStorage.getItem("bgmEnabled") === "1"; }
-export function startBgm() { if (isBgmEnabled()) { if (!_bgm) { _bgm = new Audio("assets/bgm/forest_magic.mp3"); _bgm.loop = true; _bgm.volume = 0.25; } _bgm.play().catch(()=>{}); } }
-export function stopBgm() { if (_bgm) _bgm.pause(); }
+/* =====================
+   Background Music (BGM)
+===================== */
+let bgm;
+const BGM_KEY = "bgm_enabled";
+export function startBgm() {
+  try {
+    const enabled = localStorage.getItem(BGM_KEY);
+    if (enabled === "0") return;
+    if (!bgm) {
+      bgm = new Audio("assets/bgm/forest_magic.mp3");
+      bgm.loop = true;
+      bgm.volume = 0.25;
+    }
+    bgm.play().catch(() => {});
+  } catch {}
+}
+export function stopBgm() {
+  try {
+    if (bgm) bgm.pause();
+  } catch {}
+}
+export function toggleBgm() {
+  const enabled = localStorage.getItem(BGM_KEY) !== "0";
+  if (enabled) {
+    localStorage.setItem(BGM_KEY, "0");
+    stopBgm();
+    showToast("已關閉背景音樂", "info");
+  } else {
+    localStorage.setItem(BGM_KEY, "1");
+    startBgm();
+    showToast("已開啟背景音樂", "success");
+  }
+}
 
+/* =====================
+   Header / Nav
+===================== */
+function renderHeader() {
+  const header = document.getElementById("kid-info");
+  if (!header) return;
+
+  const kid = state.kids.find((k) => k.id === state.currentKidId);
+  const data = state.kidData[state.currentKidId] || { points: 0 };
+
+  header.innerHTML = `
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="font-black text-gray-800 truncate">${kid?.nickname || "請到設定新增小朋友"}</div>
+        <div class="text-xs text-gray-500">點數累積不會扣除（可孵蛋 / 可換獎勵）</div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="bg-secondary/20 text-secondary px-3 py-1 rounded-full font-black">🪙 ${Number(data.points || 0)}</div>
+        <button id="bgm-btn" class="bg-gray-200 px-3 py-1 rounded-full text-sm font-bold">🎵</button>
+      </div>
+    </div>
+  `;
+
+  const btn = document.getElementById("bgm-btn");
+  if (btn) btn.onclick = toggleBgm;
+}
+
+function renderNav() {
+  const nav = document.getElementById("nav-bar");
+  if (!nav) return;
+
+  nav.innerHTML = `
+    <a href="tasks.html" title="任務">📝</a>
+    <a href="scores.html" title="分數">📅</a>
+    <a href="spirits.html" title="精靈">🥚</a>
+    <a href="shop.html" title="獎勵">🎁</a>
+    <a href="settings.html" title="設定">⚙️</a>
+  `;
+}
+
+/* =====================
+   switchKid
+===================== */
 export function switchKid(kidId) {
+  if (!kidId) return;
   state.currentKidId = kidId;
   localStorage.setItem("currentKidId", kidId);
-  const name = state.kids.find((k) => k.id === kidId)?.nickname || "小朋友";
-  showToast(`已切換至 ${name}`, "info");
+  renderHeader();
+  if (typeof window.__rerenderCurrentView === "function") {
+    window.__rerenderCurrentView();
+  }
 }
-window.switchKid = switchKid;
 
-function renderHeaderAndNavBar(currentView) {
-  const currentKid = state.kids.find((k) => k.id === state.currentKidId);
-  const kidData = state.kidData[state.currentKidId] || { points: 0 };
-  const header = document.getElementById("kid-info");
-  if (header) {
-    header.innerHTML = `
-      <div class="flex items-center space-x-3">
-        <span class="text-xl font-bold text-primary">${currentKid?.nickname || "設定中..."}</span>
-      </div>
-      <div class="flex items-center space-x-2 p-2 bg-secondary/20 rounded-full">
-        <span class="text-2xl font-extrabold text-secondary">${kidData.points || 0}</span>
-        <span class="text-sm text-gray-800">點</span>
-      </div>`;
-  }
-  const navBar = document.getElementById("nav-bar");
-  if (navBar) {
-    const navItems = [
-      { name: "任務牆", view: "tasks", icon: "📝", link: "tasks.html" },
-      { name: "精靈", view: "spirits", icon: "🥚", link: "spirits.html" },
-      { name: "商店", view: "shop", icon: "🎁", link: "shop.html" },
-      { name: "設定", view: "settings", icon: "⚙️", link: "settings.html" },
+/* =====================
+   Firestore helpers
+===================== */
+export async function setDoc(ref, data, options = { merge: true }) {
+  return fsSetDoc(ref, data, options);
+}
+export async function addDocument(colRef, data) {
+  return addDoc(colRef, data);
+}
+
+/* =====================
+   Seed default tasks & rewards
+===================== */
+async function ensureDefaultData() {
+  const tasksRef = getTaskCollectionRef();
+  const rewardsRef = getRewardCollectionRef();
+
+  const [tasksSnap, rewardsSnap] = await Promise.all([getDocs(tasksRef), getDocs(rewardsRef)]);
+  if (!tasksSnap.empty && !rewardsSnap.empty) return;
+
+  const batch = writeBatch(db);
+
+  if (tasksSnap.empty) {
+    const defaultTasks = [
+      { name: "整理玩具", description: "把玩具收回原位", points: 10, cycle: "daily" },
+      { name: "刷牙洗臉", description: "早晚刷牙洗臉", points: 5, cycle: "daily" },
+      { name: "自己穿鞋", description: "自己穿好鞋子", points: 10, cycle: "daily" },
+      { name: "幫忙家事", description: "幫爸爸媽媽做一件事", points: 20, cycle: "once" },
     ];
-    navBar.innerHTML = navItems.map((item) => `
-      <a href="${item.link}" class="flex flex-col items-center justify-center p-2 flex-1 ${currentView === item.view ? "text-primary font-bold bg-gray-100 rounded-lg" : "text-gray-400"}">
-        <span class="text-2xl">${item.icon}</span>
-        <span class="text-xs mt-1">${item.name}</span>
-      </a>`).join("");
+    defaultTasks.forEach((t) => batch.set(doc(tasksRef), t));
   }
+
+  if (rewardsSnap.empty) {
+    const defaultRewards = [
+      { name: "看卡通 30 分鐘", description: "跟爸爸媽媽一起看", cost: 50 },
+      { name: "選一個小點心", description: "任選一個小點心", cost: 80 },
+      { name: "小玩具", description: "選一個小禮物", cost: 150 },
+      { name: "週末家庭活動", description: "一起去公園/走走", cost: 300 },
+    ];
+    defaultRewards.forEach((r) => batch.set(doc(rewardsRef), r));
+  }
+
+  await batch.commit();
+}
+
+/* =====================
+   initPage (core)
+===================== */
+function debounce(fn, wait = 80) {
+  let t;
+  return () => {
+    clearTimeout(t);
+    t = setTimeout(fn, wait);
+  };
 }
 
 export async function initPage(renderFn, viewName) {
   state.currentView = viewName;
-  try {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    await signInAnonymously(auth);
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-      userId = user.uid;
-      state.isAuthReady = true;
-      onSnapshot(getKidCollectionRef(), (snap) => {
-        state.kids = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (state.kids.length === 0 && viewName !== "settings") window.location.replace("settings.html");
-        renderHeaderAndNavBar(viewName);
-        renderFn();
-        if (document.getElementById("loading-screen")) document.getElementById("loading-screen").classList.add("hidden");
-      });
-      onSnapshot(getTaskCollectionRef(), snap => { state.tasks = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderFn(); });
-      onSnapshot(collection(getUserRootDoc(), "kid_states"), snap => {
-        snap.docs.forEach(d => { state.kidData[d.id] = d.data(); });
-        renderHeaderAndNavBar(viewName);
-        renderFn();
-      });
-    });
-  } catch (e) { console.error(e); }
-}
+  window.__rerenderCurrentView = renderFn;
 
-export async function setDoc(ref, data, options = {merge:true}) { return fsSetDoc(ref, data, options); }
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+
+  window.addEventListener(
+    "pointerdown",
+    () => {
+      startBgm();
+    },
+    { once: true }
+  );
+
+  await signInAnonymously(auth);
+
+  const safeRender = debounce(() => {
+    renderHeader();
+    renderNav();
+    renderFn();
+  }, 60);
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return;
+    userId = user.uid;
+    state.isAuthReady = true;
+
+    await ensureDefaultData();
+
+    onSnapshot(getKidCollectionRef(), (snap) => {
+      state.kids = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (!state.currentKidId && state.kids[0]) {
+        state.currentKidId = state.kids[0].id;
+        localStorage.setItem("currentKidId", state.currentKidId);
+      }
+      safeRender();
+    });
+
+    onSnapshot(getTaskCollectionRef(), (snap) => {
+      state.tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      safeRender();
+    });
+
+    onSnapshot(getRewardCollectionRef(), (snap) => {
+      state.rewards = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      safeRender();
+    });
+
+    onSnapshot(collection(getUserRootDoc(), "kid_states"), (snap) => {
+      const next = {};
+      snap.forEach((d) => (next[d.id] = d.data()));
+      state.kidData = next;
+      safeRender();
+    });
+  });
+}
