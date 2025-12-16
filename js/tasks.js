@@ -1,6 +1,6 @@
 // js/tasks.js
 
-import { state, initPage, showToast, getKidDocRef } from "./base.js"; 
+import { getKidStateDocRef, state, showToast, showModal,} from "./base.js"; 
 import { updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /** 渲染任務牆 (Tasks View) */
