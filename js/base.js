@@ -24,7 +24,7 @@ const firebaseConfig = {
 };
 
 // --- 全域狀態 (State) ---
-const state = { // 不使用 export，統一在底部匯出
+const state = { // 🚨 關鍵修正：定義時不使用 export
     isAuthReady: false,
     kids: [], // 小朋友清單
     currentKidId: localStorage.getItem('currentKidId') || null, // 當前選定的小朋友 ID
@@ -288,7 +288,7 @@ function setupListeners(pageViewName) {
 // --- 核心初始化與狀態設定 (initPage) ---
 
 /** 處理 Firebase 登入並初始化數據監聽 */
-function initPage(pageRenderFunc, pageViewName) { // 🚨 移除 export
+function initPage(pageRenderFunc, pageViewName) { 
     renderCallback = pageRenderFunc;
 
     const loadingScreen = document.getElementById('loading-screen');

@@ -1,6 +1,6 @@
 // js/tasks.js
 
-import { getKidStateDocRef, state, showToast, showModal,} from "./base.js"; 
+import { getKidStateDocRef, state, showToast, showModal, initPage } from "./base.js"; 
 import { updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /** 渲染任務牆 (Tasks View) */
@@ -55,7 +55,10 @@ window.completeTask = async (taskId, points) => {
     if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
     
     const kidId = state.currentKidId;
-    const kidRef = getKidDocRef(kidId);
+    
+    // 🌟 關鍵修正：確保呼叫的是 base.js 實際導出的函式名稱
+    const kidRef = getKidStateDocRef(kidId); 
+    
     const now = Date.now();
     const today = new Date().toDateString();
 
@@ -87,7 +90,8 @@ window.completeTask = async (taskId, points) => {
         showToast(`完成任務失敗: ${error.message}`, 'danger');
     }
 };
-window.completeTask = window.completeTask; // 確保全域可訪問
+// 確保全域可訪問
+window.completeTask = window.completeTask; 
 
 window.onload = () => {
     initPage(renderTasksContent, 'tasks');
