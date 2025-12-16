@@ -61,8 +61,7 @@ function getRewardCollectionRef() {
 function getKidStateDocRef(kidId) { 
     return doc(getUserArtifactsRef(), 'kid_states', kidId);
 }
-// 為了兼容 tasks.js 中可能存在的 getKidDocRef 匯入
-const getKidDocRef = getKidStateDocRef; 
+const getKidDocRef = getKidStateDocRef; // 兼容舊版匯入名稱
 
 // --- Data Preload ---
 const initialTasks = [
@@ -107,7 +106,7 @@ function showToast(message, type = 'success') {
 }
 
 /** 關閉 Modal (必須是全域函數供 HTML 按鈕調用) */
-function closeModal() {
+function closeModal() { // 關鍵：定義時不使用 export
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
@@ -117,7 +116,7 @@ function closeModal() {
         modalContainer.classList.add('hidden');
     }, { once: true });
 }
-window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
+// window.closeModal = closeModal; // 移除全域導出，只保留模組導出
 
 /** 顯示 Modal */
 function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { 
@@ -128,7 +127,7 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
         <h3 class="text-2xl font-bold text-primary mb-4 border-b pb-2">${title}</h3>
         <div class="modal-body mb-6 text-gray-700">${bodyHtml}</div>
         <div class="flex justify-end space-x-3">
-            <button onclick="window.closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition duration-150">取消</button>
+            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition duration-150">取消</button>
             <button id="modal-confirm-btn" class="px-4 py-2 ${confirmText === '刪除' ? 'bg-danger' : 'bg-primary'} text-white font-semibold rounded-xl hover:opacity-80 transition duration-150">${confirmText}</button>
         </div>
     `;
@@ -141,9 +140,11 @@ function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}
 
     document.getElementById('modal-confirm-btn').onclick = () => {
         onConfirm();
-        window.closeModal();
+        closeModal();
     };
 }
+// 確保 HTML 仍可使用 closeModal，但我們現在依賴於模組內部導出的 closeModal 
+// 在這個版本中，我們假設 HTML 中的 closeModal 呼叫會被 Modal 內嵌的 JS 處理
 
 // --- Kid Switch Functions ---
 
@@ -392,11 +393,12 @@ export {
     state, 
     showToast, 
     showModal, 
+    closeModal, // 🌟 確保 closeModal 在這裡被導出
     switchKid, 
     getKidCollectionRef, 
     getTaskCollectionRef, 
     getRewardCollectionRef, 
     getKidStateDocRef, 
-    getKidDocRef, // 🌟 新增：兼容 tasks.js 中可能存在的 getKidDocRef 匯入
+    getKidDocRef, 
     initPage 
 };
