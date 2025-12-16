@@ -268,8 +268,6 @@ function setupListeners(pageViewName) {
     });
 }
 
-// --- Initialization Entry Point (修正後的完整結構) ---
-
 /** 處理 Firebase 登入並初始化數據監聽 */
 export async function initPage(pageRenderFunc, pageViewName) {
     renderCallback = pageRenderFunc; // 設置頁面專屬的渲染函式
@@ -277,65 +275,77 @@ export async function initPage(pageRenderFunc, pageViewName) {
     const loadingScreen = document.getElementById('loading-screen');
     const content = document.getElementById('content');
 
-   // js/base.js (initPage 函式修正)
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
 
-// ... (initPage 函式開頭不變) ...
+        // 立即嘗試匿名登入
+        await signInAnonymously(auth);
 
-try {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-    
-    console.log("[Base] App initialized. Attempting anonymous sign-in...");
-    // 立即嘗試匿名登入 (這是非同步操作)
-    await signInAnonymously(auth);
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                state.isAuthReady = true;
+                console.log(`[Base] Auth Success. User ID: ${userId}`);
 
-    onAuthStateChanged(auth, async (user) => {
-        const loadingScreen = document.getElementById('loading-screen');
-        const content = document.getElementById('content');
+                await preloadInitialData();
+                
+                // 設置監聽器
+                setupListeners(pageViewName); 
 
-        if (user) {
-            userId = user.uid;
-            state.isAuthReady = true;
-            console.log(`[Base] Auth Success. User ID: ${userId}`);
+                // 🌟 單次檢查：確認是否需要強制跳轉到設定頁面
+                setTimeout(() => {
+                    const hasKids = state.kids.length > 0;
 
-            await preloadInitialData();
-            
-            // 設置監聽器
-            setupListeners(pageViewName); 
-
-            // 🌟 單次檢查：確認是否需要強制跳轉到設定頁面
-            // 使用延遲來確保第一次 onSnapshot (即時同步) 有機會完成。
-            setTimeout(() => {
-                const hasKids = state.kids.length > 0;
-
-                if (!hasKids && pageViewName !== 'settings') {
-                    console.log("[Base] No kids found. Redirecting to settings.");
-                    window.location.replace('settings.html');
-                    return; 
+                    if (!hasKids && pageViewName !== 'settings') {
+                        console.log("[Base] No kids found. Redirecting to settings.");
+                        window.location.replace('settings.html');
+                        return; 
+                    }
+                    
+                    // 成功：隱藏載入畫面並顯示內容
+                    if (loadingScreen) loadingScreen.classList.add('hidden');
+                    if (content) content.classList.remove('hidden');
+                    console.log(`[Base] Initial render complete for view: ${pageViewName}`);
+                    
+                }, 300); 
+                
+            } else {
+                // Auth Failed UI (如果匿名登入失敗，會觸發這裡)
+                console.error("[Base] Firebase Authentication Failed. User object is null.");
+                
+                // 失敗時，顯示錯誤訊息並隱藏載入畫面
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden'); // 確保載入畫面消失
+                    // 在內容區塊顯示錯誤提示
+                    if (content) {
+                         content.classList.remove('hidden');
+                         content.innerHTML = `
+                            <div class="text-center p-10 bg-danger/10 rounded-3xl mt-8 shadow-inner border border-danger">
+                                <p class="text-3xl font-bold text-danger mb-4">🚫 Firebase 連線失敗</p>
+                                <p class="text-gray-700 font-medium">請確認您的 Firebase 專案已啟用 **匿名登入 (Anonymous)** 功能。</p>
+                            </div>
+                        `;
+                    }
                 }
-                
-                // 初始頁面渲染
-                if (loadingScreen) loadingScreen.classList.add('hidden');
-                if (content) content.classList.remove('hidden');
-                console.log(`[Base] Initial render complete for view: ${pageViewName}`);
-                
-            }, 300); // 增加延遲到 300ms 確保數據同步
+            }
+        });
+    } catch (error) {
+        // 發生在 Firebase 初始化或 await signInAnonymously 步驟的致命錯誤
+        console.error("App Initialization Fatal Error:", error);
+        if (loadingScreen) loadingScreen.classList.add('hidden'); // 確保載入畫面消失
 
-        } else {
-            // Auth Failed UI (如果匿名登入失敗，會觸發這裡)
-            console.error("[Base] Firebase Authentication Failed. User object is null.");
-            if (loadingScreen) loadingScreen.innerHTML = `<p class="text-xl font-bold text-danger">連線失敗：請檢查 Firebase 匿名登入設定。</p>`;
+        // 在內容區塊顯示致命錯誤提示
+        if (content) {
+            content.classList.remove('hidden');
+            content.innerHTML = `
+                <div class="text-center p-8 bg-danger/10 rounded-xl shadow-lg mt-8">
+                    <p class="text-xl font-bold text-danger">應用程式初始化失敗 (Fatal Error)</p>
+                    <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
+                </div>
+            `;
         }
-    });
-} catch (error) {
-    console.error("App Initialization Fatal Error:", error);
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) loadingScreen.innerHTML = `
-        <div class="text-center p-8 bg-white rounded-xl shadow-lg">
-            <p class="text-xl font-bold text-danger">應用程式初始化失敗 (Fatal Error)</p>
-            <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
-        </div>
-    `;
+    }
 }
-}
+// ... (其他 base.js 內容保持不變)
