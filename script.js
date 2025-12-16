@@ -64,7 +64,7 @@ const initialRewards = [
 ];
 
 
-// --- RENDER FUNCTION DEFINITIONS (Must be defined before window.render) ---
+// --- RENDER FUNCTION DEFINITIONS ---
 
 /** 渲染任務清單子區塊 */
 function renderTaskList() {
@@ -278,11 +278,13 @@ function renderSettings(forceKidSetup = false) {
                 <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">🛍️ 獎勵商城編輯</h3>
                 <button onclick="showEditRewardModal()" class="w-full py-3 mb-4 bg-accent text-white font-black rounded-xl hover:bg-teal-500 transition-colors shadow-md">+ 新增獎勵</button>
                 ${renderRewardList()}
+            ` : ''}
             
-                <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">👨‍👩‍👧‍👦 小朋友資料設定</h3>
-                <button onclick="showEditKidModal()" class="w-full py-3 mb-4 bg-pink-light text-white font-black rounded-xl hover:bg-orange-400 transition-colors shadow-md">+ 新增小朋友</button>
-            ` : `<h3 class="text-2xl font-bold mb-6 text-primary">👨‍👩‍👧‍👦 請先設定小朋友資料</h3>`}
+            <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">👨‍👩‍👧‍👦 小朋友資料設定</h3>
             
+            <!-- 修正：將新增小朋友按鈕移到主要區塊外，確保即使是初始設定模式也能看到 -->
+            <button onclick="showEditKidModal()" class="w-full py-3 mb-4 bg-pink-light text-white font-black rounded-xl hover:bg-orange-400 transition-colors shadow-md">+ 新增小朋友</button>
+
             ${renderKidList(currentKid)}
         </div>
     `;
@@ -291,8 +293,6 @@ function renderSettings(forceKidSetup = false) {
 
 
 // --- CORE LOGIC FUNCTIONS ---
-// (Functions exposed to global scope via window.functionName)
-
 
 /** 顯示 Toast 訊息 */
 window.showToast = (message, type = 'success') => {
@@ -318,11 +318,10 @@ window.showToast = (message, type = 'success') => {
     }, 3000);
 };
 
-/** 顯示 Modal (簡化版本，實際邏輯在上方) */
+/** 顯示 Modal */
 window.showModal = (title, contentHTML, buttonsHTML = '') => {
-    // 由於 showModal 邏輯較長且已在上方，這裡僅保留呼叫
     const modalContent = document.getElementById('modal-content');
-    if (!modalContent) return; // Add check for robustness
+    if (!modalContent) return; 
 
     state.modalOpen = true;
     modalContent.innerHTML = `
@@ -342,10 +341,10 @@ window.showModal = (title, contentHTML, buttonsHTML = '') => {
     }, 50);
 };
 
-/** 關閉 Modal (簡化版本，實際邏輯在上方) */
+/** 關閉 Modal */
 window.closeModal = () => {
     const modalContent = document.getElementById('modal-content');
-    if (!modalContent) return; // Add check for robustness
+    if (!modalContent) return;
 
     modalContent.classList.remove('scale-100', 'opacity-100');
     modalContent.classList.add('scale-95', 'opacity-0');
@@ -355,9 +354,8 @@ window.closeModal = () => {
     }, { once: true });
 };
 
-// ... 其他 window.functionName 都在底部定義，以確保作用域
 
-/** 切換當前小朋友 (已暴露) */
+/** 切換當前小朋友 */
 window.switchKid = (kidId) => {
     state.currentKidId = kidId;
     localStorage.setItem('currentKidId', kidId);
@@ -365,7 +363,7 @@ window.switchKid = (kidId) => {
     showToast(`已切換至 ${state.kids.find(k => k.id === kidId)?.nickname || '新小朋友'}`, 'info');
 };
 
-/** 切換 View (已暴露) */
+/** 切換 View */
 window.changeView = (view) => {
     state.currentView = view;
     console.log(`[App] Switching view to: ${view}`);
@@ -377,10 +375,10 @@ window.changeView = (view) => {
     }
 };
 
-/** 任務完成 (已暴露) */
+/** 任務完成 */
 window.completeTask = async (taskId, points) => {
     if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-    // ... (任務完成邏輯)
+    
     const kidId = state.currentKidId;
     const kidRef = getKidDocRef(kidId);
     const now = Date.now();
@@ -416,10 +414,10 @@ window.completeTask = async (taskId, points) => {
     }
 };
 
-/** 獎勵兌換 (已暴露) */
+/** 獎勵兌換 */
 window.redeemReward = async (rewardId, cost) => {
     if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-    // ... (獎勵兌換邏輯)
+
     const kidId = state.currentKidId;
     const kidRef = getKidDocRef(kidId);
     const kidState = state.kidData[kidId];
@@ -457,17 +455,10 @@ window.confirmRedemption = async (rewardId, cost) => {
     }
 }
 
-/** 孵化精靈 (已暴露) */
-const spiritNames = ["太陽獅Leo", "雲朵羊Coco", "星星狐Foxy", "彩虹魚Rainbow", "機器人Robby", "魔法兔Momo", "樹葉龜Turtle", "閃電鳥Bolt"];
-const spiritIcons = ["🦁", "🐑", "🦊", "🌈", "🤖", "🐰", "🐢", "🐦"];
-const getRandomSpirit = () => {
-    const index = Math.floor(Math.random() * spiritNames.length);
-    return { name: spiritNames[index], icon: spiritIcons[index] };
-}
-
+/** 孵化精靈 */
 window.hatchSpirit = async () => {
     if (!state.currentKidId) return showToast("請先選擇一位小朋友！", 'danger');
-    // ... (孵化邏輯)
+    
     const kidId = state.currentKidId;
     const kidRef = getKidDocRef(kidId);
     const kidState = state.kidData[kidId];
@@ -526,7 +517,7 @@ window.hatchSpirit = async () => {
     }
 };
 
-/** 命名精靈 (已暴露) */
+/** 命名精靈 */
 window.nameSpirit = async (spiritId) => {
     const customName = document.getElementById('customName').value.trim();
     if (!customName) {
@@ -552,7 +543,7 @@ window.nameSpirit = async (spiritId) => {
     }
 };
 
-/** 顯示小朋友切換 Modal (已暴露) */
+/** 顯示小朋友切換 Modal */
 window.showKidSwitchModal = () => {
     const contentHTML = state.kids.map(kid => `
         <button onclick="switchKidAndCloseModal('${kid.id}')" class="w-full text-left p-4 rounded-xl border-2 transition-all ${kid.id === state.currentKidId ? 'bg-primary text-white border-primary shadow-lg' : 'bg-bg-light hover:bg-gray-100 border-gray-200'}">
@@ -563,13 +554,13 @@ window.showKidSwitchModal = () => {
     showModal('切換小朋友', contentHTML);
 }
 
-/** 切換小朋友並關閉 Modal (已暴露) */
+/** 切換小朋友並關閉 Modal */
 window.switchKidAndCloseModal = (kidId) => {
     switchKid(kidId);
     closeModal();
 }
 
-/** 顯示編輯小朋友 Modal (已暴露) */
+/** 顯示編輯小朋友 Modal */
 window.showEditKidModal = (kidId = null) => {
     const isEdit = !!kidId;
     const kid = isEdit ? state.kids.find(k => k.id === kidId) : {};
@@ -591,12 +582,12 @@ window.showEditKidModal = (kidId = null) => {
     `;
 
     const saveButton = `
-        <button onclick="saveKid('${kidId}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">${isEdit ? '儲存變更' : '新增'}</button>
+        <button onclick="saveKid('${kidId}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
 
-/** 儲存小朋友資料 (已暴露) */
+/** 儲存小朋友資料 */
 window.saveKid = async (kidId = null) => {
     const nickname = document.getElementById('kidNickname').value.trim();
     const age = document.getElementById('kidAge').value.trim();
@@ -621,7 +612,7 @@ window.saveKid = async (kidId = null) => {
     }
 };
 
-/** 刪除小朋友資料 (已暴露) */
+/** 刪除小朋友資料 */
 window.deleteKid = async (kidId) => {
     const confirmed = confirm(`確定要刪除這位小朋友及其所有數據嗎？`);
     if (confirmed) {
@@ -641,7 +632,7 @@ window.deleteKid = async (kidId) => {
     }
 };
 
-/** 顯示編輯任務 Modal (已暴露) */
+/** 顯示編輯任務 Modal */
 window.showEditTaskModal = (taskId = null) => {
     const isEdit = !!taskId;
     const task = isEdit ? state.tasks.find(t => t.id === taskId) : { cycle: 'daily', points: 10 };
@@ -666,12 +657,12 @@ window.showEditTaskModal = (taskId = null) => {
     `;
 
     const saveButton = `
-        <button onclick="saveTaskForm('${taskId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">${isEdit ? '儲存變更' : '新增'}</button>
+        <button onclick="saveTaskForm('${taskId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
 
-/** 儲存任務表單 (已暴露) */
+/** 儲存任務表單 */
 window.saveTaskForm = (taskId) => {
     const data = {
         name: document.getElementById('taskName').value.trim(),
@@ -683,7 +674,7 @@ window.saveTaskForm = (taskId) => {
     window.saveItem('task', data, taskId);
 };
 
-/** 顯示編輯獎勵 Modal (已暴露) */
+/** 顯示編輯獎勵 Modal */
 window.showEditRewardModal = (rewardId = null) => {
     const isEdit = !!rewardId;
     const reward = isEdit ? state.rewards.find(r => r.id === rewardId) : { cost: 100 };
@@ -701,12 +692,12 @@ window.showEditRewardModal = (rewardId = null) => {
     `;
 
     const saveButton = `
-        <button onclick="saveRewardForm('${rewardId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">${isEdit ? '儲存變更' : '新增'}</button>
+        <button onclick="saveRewardForm('${rewardId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
 
-/** 儲存獎勵表單 (已暴露) */
+/** 儲存獎勵表單 */
 window.saveRewardForm = (rewardId) => {
     const data = {
         name: document.getElementById('rewardName').value.trim(),
@@ -721,7 +712,6 @@ window.saveRewardForm = (rewardId) => {
 // --- INITIALIZATION AND LISTENERS ---
 
 async function getKidState(kidId) {
-    // ... (獲取 Kid State 邏輯)
     const kidDoc = await getDoc(getKidDocRef(kidId));
     if (kidDoc.exists()) {
         return kidDoc.data();
@@ -737,7 +727,6 @@ async function getKidState(kidId) {
 }
 
 async function preloadInitialData() {
-    // ... (預載數據邏輯)
     if (!db) return;
 
     const taskQuery = await getDocs(getTaskCollectionRef());
@@ -766,7 +755,6 @@ async function preloadInitialData() {
 }
 
 function setupListeners() {
-    // ... (設置監聽器邏輯)
     onSnapshot(getKidCollectionRef(), (snapshot) => {
         state.kids = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
@@ -860,48 +848,6 @@ window.render = () => {
     }
 };
 
-/** 渲染 Header (小朋友切換) */
-function renderHeader() {
-    const currentKid = state.kids.find(k => k.id === state.currentKidId);
-    const kidInfo = document.getElementById('kid-info');
-    
-    if (!kidInfo) return;
-
-    if (!currentKid) {
-        kidInfo.innerHTML = `<span class="text-sm">未選定小朋友</span>`;
-        return;
-    }
-
-    const currentKidNickname = currentKid.nickname || '未命名小朋友';
-
-    kidInfo.innerHTML = `
-        <div class="text-sm font-medium">當前：${currentKidNickname}</div>
-        <button onclick="showKidSwitchModal()" class="bg-accent/50 text-white text-xs font-bold px-3 py-1 rounded-full hover:bg-accent transition-colors shadow-md">
-            切換 🔄
-        </button>
-    `;
-}
-
-/** 渲染底部導覽列 */
-function renderNavBar() {
-    const navBar = document.getElementById('nav-bar');
-    if (!navBar) return;
-
-    const navItems = [
-        { id: 'tasks', icon: '📅', label: '任務牆' },
-        { id: 'shop', icon: '🎁', label: '獎勵商城' },
-        { id: 'spirits', icon: '🥚', label: '精靈蛋屋' },
-        { id: 'settings', icon: '⚙️', label: '設定' }
-    ];
-
-    navBar.innerHTML = navItems.map(item => `
-        <button onclick="changeView('${item.id}')" class="flex flex-col items-center p-2 transition-colors ${state.currentView === item.id ? 'text-primary font-bold' : 'text-gray-500 hover:text-primary'}">
-            <span class="text-2xl">${item.icon}</span>
-            <span class="text-xs mt-1">${item.label}</span>
-        </button>
-    `).join('');
-}
-
 
 async function initApp() {
     try {
@@ -946,7 +892,7 @@ async function initApp() {
                 <p class="mt-4 text-sm font-bold text-primary">除錯提示:</p>
                 <ul class="list-disc list-inside text-left text-sm text-gray-600 mx-auto w-fit">
                     <li>請檢查 **style.css** 和 **script.js** 檔案是否已上傳到 GitHub。</li>
-                    <li>請確認您的 **Firestore 安全規則**允許寫入操作。</li>
+                    <li>請確認您的 **Firebase 配置** (apiKey, projectId) 正確。</li>
                 </ul>
             </div>
         `;
