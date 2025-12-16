@@ -488,6 +488,3 @@ export async function initPage(pageRenderFunc, pageViewName) {
     }
   }
 }
-
-// Export common Firestore helpers ONCE (avoid duplicate export errors)
-export { getFirestore, getDoc, getDocs, writeBatch, arrayUnion, doc, collection, setDoc };
