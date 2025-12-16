@@ -3,25 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>小朋友設定</title>
+  <title>設定</title>
 
-  <!-- Tailwind（你原本就在用） -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
 
-  <!-- Header（base.js 會寫內容） -->
+  <!-- Header -->
   <header class="sticky top-0 z-50 bg-white shadow">
     <div id="kid-info" class="p-4"></div>
   </header>
 
   <!-- 主內容（⚠️ 關鍵） -->
-  <main class="p-4 pb-24">
+  <main class="p-4 pb-28">
+    <!-- JS 會把「小朋友 / 任務 / 獎勵」全部 render 在這裡 -->
     <div id="view-content"></div>
   </main>
 
-  <!-- 底部導覽（base.js 會寫內容） -->
+  <!-- 底部導覽 -->
   <nav
     id="nav-bar"
     class="fixed bottom-0 left-0 right-0 bg-white border-t shadow flex justify-around py-3 text-xl">
@@ -43,7 +44,7 @@
     class="fixed top-4 right-4 z-50 space-y-2">
   </div>
 
-  <!-- ⚠️ 只載入 settings.js，不要載 base.js -->
+  <!-- ⚠️ 只載入 settings.js（不要再載 base.js） -->
   <script type="module" src="js/settings.js"></script>
 </body>
 </html>
