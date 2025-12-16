@@ -153,7 +153,7 @@
         // --- App State ---
         const state = {
             isAuthReady: false,
-            currentView: 'tasks', // tasks, shop, spirits, settings
+            currentView: 'settings', // 預設為 'settings' 讓使用者先設定
             kids: [],
             currentKidId: null,
             tasks: [],
@@ -538,8 +538,10 @@
                         state.currentKidId = savedKidId;
                     } else if (state.kids.length > 0) {
                         state.currentKidId = state.kids[0].id;
+                        state.currentView = 'tasks'; // 首次設定完成後導向任務牆
                     } else {
-                        state.currentKidId = null; // No kids yet
+                        state.currentKidId = null;
+                        state.currentView = 'settings'; // 強制留在設定頁
                     }
                 }
                 render();
@@ -584,19 +586,17 @@
             const viewContent = document.getElementById('view-content');
             viewContent.innerHTML = '';
 
-            // Handle No Kids State
-            if (state.kids.length === 0) {
-                state.currentView = 'settings';
+            const isInitialSetup = state.kids.length === 0;
+
+            if (isInitialSetup && state.currentView !== 'settings') {
+                // 如果沒有小朋友，且不在設定頁面，則顯示阻擋訊息
                 viewContent.innerHTML = `
-                    <div class="text-center p-8 bg-pink-light/50 rounded-3xl mt-8 shadow-inner border border-pink-light">
-                        <p class="text-3xl font-bold text-primary mb-4">歡迎來到魔法世界！</p>
-                        <p class="text-gray-700 font-medium">請先到右下角的「設定 ⚙️」頁面新增小朋友資料，才能開始累積點數孵化精靈喔！</p>
+                    <div class="text-center p-10 bg-pink-light/50 rounded-3xl mt-8 shadow-inner border border-pink-light">
+                        <p class="text-3xl font-bold text-danger mb-4">🚫 請先設定小朋友資料</p>
+                        <p class="text-gray-700 font-medium">請點擊右下角的「設定 ⚙️」頁面新增小朋友，才能使用此功能喔！</p>
                     </div>
                 `;
-                // 確保 nav bar 正確高亮
-                renderNavBar(); 
-                renderSettings(true); // Force render settings for Kid Setup
-                return;
+                return; // 阻止渲染其他功能頁面
             }
 
             switch (state.currentView) {
@@ -610,7 +610,8 @@
                     viewContent.appendChild(renderSpirits());
                     break;
                 case 'settings':
-                    viewContent.appendChild(renderSettings());
+                    // 如果 isInitialSetup 為 true (沒有小朋友)，renderSettings 會顯示引導 banner。
+                    viewContent.appendChild(renderSettings(isInitialSetup));
                     break;
             }
         };
@@ -802,7 +803,6 @@
 
         /** 渲染設定頁面 (Parent View) */
         function renderSettings(forceKidSetup = false) {
-            // 這個函數已經確認結構正確，應該能正常顯示內容
             const currentKid = state.kids.find(k => k.id === state.currentKidId);
             
             const element = document.createElement('div');
