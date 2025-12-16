@@ -1,6 +1,7 @@
-// js/tasks.js (修正多餘的 "}")
+// js/tasks.js
 
-import { getKidStateDocRef, state, showToast, showModal, initPage } from "./base.js"; 
+// 確保匯入了 setDoc (假設 base.js 已經匯出了它)
+import { getKidStateDocRef, state, showToast, showModal, initPage, setDoc, doc } from "./base.js"; 
 import { updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 /** 渲染任務牆 (Tasks View) */
@@ -38,11 +39,9 @@ function renderTasksContent() {
     if (!viewContent) return; 
     
     viewContent.innerHTML = `
-        <h2 class="text-2xl font-extrabold text-gray-800 mb-2">${kidNickname} 的點數狀況</h2>
-        <div class="text-center p-6 mb-8 rounded-3xl bg-secondary shadow-2xl text-white points-pulse border-4 border-yellow-300">
-            <p class="text-lg font-bold">累積金幣</p>
-            <p class="text-7xl font-black">${kidState.points || 0}</p>
-            <p class="text-3xl font-bold">點</p>
+        <div class="p-4 bg-white rounded-xl shadow-md mb-6">
+            <p class="text-lg font-bold text-gray-800">當前小朋友：${kidNickname}</p>
+            <p class="text-xl font-extrabold text-secondary mt-1">點數: ${kidState.points || 0}</p>
         </div>
 
         <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌟 今日待辦任務</h2>
@@ -56,12 +55,13 @@ window.completeTask = async (taskId, points) => {
     
     const kidId = state.currentKidId;
     const kidRef = getKidStateDocRef(kidId); 
+    
     const now = Date.now();
     const today = new Date().toDateString();
 
     try {
         const task = state.tasks.find(t => t.id === taskId);
-        const kidState = state.kidData[kidId];
+        const kidState = state.kidData[kidId] || { points: 0, lastTaskCompletion: {} }; // 確保 kidState 有默認值
 
         if (task.cycle === 'daily') {
             const lastCompletionDate = kidState.lastTaskCompletion[taskId] ? new Date(kidState.lastTaskCompletion[taskId]).toDateString() : null;
@@ -70,10 +70,14 @@ window.completeTask = async (taskId, points) => {
             }
         }
 
-        await updateDoc(kidRef, {
+        // 🌟 關鍵修正：使用 setDoc with merge: true，確保文件不存在時能創建，存在時能更新
+        await setDoc(kidRef, {
             points: (kidState.points || 0) + points,
-            [`lastTaskCompletion.${taskId}`]: now,
-        });
+            lastTaskCompletion: {
+                ...kidState.lastTaskCompletion,
+                [taskId]: now,
+            }
+        }, { merge: true });
 
         showToast(`任務完成！獲得 ${points} 點！`, 'success');
         
@@ -84,11 +88,16 @@ window.completeTask = async (taskId, points) => {
 
     } catch (error) {
         console.error("Error completing task:", error);
-        showToast(`完成任務失敗: ${error.message}`, 'danger');
+        // 打印更詳細的錯誤信息
+        if (error.code === 'permission-denied') {
+             showToast("任務失敗：權限不足。請檢查 Firebase 安全規則。", 'danger');
+        } else {
+             showToast(`完成任務失敗: ${error.message}`, 'danger');
+        }
     }
 };
 // 確保全域可訪問
 window.completeTask = window.completeTask; 
 
-// 🚨 關鍵修正：移除 window.onload，在模組載入時直接啟動
+// 啟動邏輯
 initPage(renderTasksContent, 'tasks');
