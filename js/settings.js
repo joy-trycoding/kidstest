@@ -112,20 +112,23 @@ window.showEditKidModal = (kidId = null) => {
         </select>
     `;
 
-    // 🌟 修正點：在新增模式下，傳遞空字串 '' 作為 ID，確保 saveKid 執行 addDoc
-    const idForSave = isEdit ? kidId : ''; 
+    // 關鍵修正：在新增模式下，傳遞 null 關鍵字 (不帶引號)，讓 JS 能夠解析
+    const idForSave = isEdit ? `'${kidId}'` : 'null'; 
     
+    // 使用 null 關鍵字，JS 會嘗試解析為 null，但 HTML 傳輸可能會轉為字串 "null"
     const saveButton = `
-        <button onclick="saveKid('${idForSave}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
+        <button onclick="saveKid(${idForSave})" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
 window.showEditKidModal = window.showEditKidModal;
 
 window.saveKid = async (kidId = null) => {
-    // 修正：如果 kidId 是空字串，將它轉換回 null，確保 if 判斷正確
-    if (kidId === '') kidId = null;
-
+    // 🌟 最終保險修正：將任何可能誤入的字串 "null" 或空字串轉為 null
+    if (typeof kidId === 'string' && (kidId.toLowerCase() === 'null' || kidId.trim() === '')) {
+        kidId = null;
+    }
+    
     const nickname = document.getElementById('kidNickname').value.trim();
     const age = document.getElementById('kidAge').value.trim();
     const gender = document.getElementById('kidGender').value;
@@ -135,12 +138,12 @@ window.saveKid = async (kidId = null) => {
     const data = { nickname, age: age ? parseInt(age) : null, gender };
 
     try {
-        if (kidId) {
-            // 更新現有資料
+        if (kidId) { 
+            // 如果 kidId 是有效的 ID 字串，則執行更新
             await updateDoc(doc(getKidCollectionRef(), kidId), data);
             showToast('小朋友資料更新成功！');
         } else {
-            // 新增資料
+            // 如果 kidId 是 null，則執行新增
             await addDoc(getKidCollectionRef(), data);
             showToast('小朋友資料新增成功！');
         }
@@ -173,9 +176,11 @@ window.deleteKid = window.deleteKid;
 
 // 任務/獎勵的共用儲存和刪除函式
 window.saveItem = async (type, data, itemId = null) => {
-    // 修正：如果 itemId 是空字串，將它轉換回 null
-    if (itemId === '') itemId = null;
-    
+    // 🌟 最終保險修正：將任何可能誤入的字串 "null" 或空字串轉為 null
+    if (typeof itemId === 'string' && (itemId.toLowerCase() === 'null' || itemId.trim() === '')) {
+        itemId = null;
+    }
+
     const colRef = type === 'task' ? getTaskCollectionRef() : getRewardCollectionRef();
     const collectionName = type === 'task' ? '任務' : '獎勵';
 
@@ -242,11 +247,11 @@ window.showEditTaskModal = (taskId = null) => {
         </select>
     `;
 
-    // 🌟 修正點：在新增模式下，傳遞空字串 '' 作為 ID
-    const idForSave = isEdit ? taskId : ''; 
+    // 關鍵修正：在新增模式下，傳遞 null 關鍵字
+    const idForSave = isEdit ? `'${taskId}'` : 'null'; 
 
     const saveButton = `
-        <button onclick="saveTaskForm('${idForSave}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
+        <button onclick="saveTaskForm(${idForSave})" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
@@ -260,7 +265,6 @@ window.saveTaskForm = (taskId) => {
         cycle: document.getElementById('taskCycle').value,
     };
     if (!data.name || !data.points) return showToast("任務名稱和點數是必填項！", 'danger');
-    // 這裡調用 saveItem，它會在內部處理 ID 為空字串的情況
     window.saveItem('task', data, taskId);
 };
 window.saveTaskForm = window.saveTaskForm;
@@ -282,11 +286,11 @@ window.showEditRewardModal = (rewardId = null) => {
         <input type="number" id="rewardCost" value="${reward.cost || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
     `;
 
-    // 🌟 修正點：在新增模式下，傳遞空字串 '' 作為 ID
-    const idForSave = isEdit ? rewardId : ''; 
+    // 關鍵修正：在新增模式下，傳遞 null 關鍵字
+    const idForSave = isEdit ? `'${rewardId}'` : 'null'; 
 
     const saveButton = `
-        <button onclick="saveRewardForm('${idForSave}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
+        <button onclick="saveRewardForm(${idForSave})" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">儲存</button>
     `;
     showModal(title, contentHTML, saveButton);
 };
@@ -299,7 +303,6 @@ window.saveRewardForm = (rewardId) => {
         cost: document.getElementById('rewardCost').value.trim(),
     };
     if (!data.name || !data.cost) return showToast("商品名稱和點數是必填項！", 'danger');
-    // 這裡調用 saveItem，它會在內部處理 ID 為空字串的情況
     window.saveItem('reward', data, rewardId);
 };
 window.saveRewardForm = window.saveRewardForm;
