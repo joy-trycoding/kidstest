@@ -1,1 +1,116 @@
-@import url('https://www.google.com/search?q=https://fonts.googleapis.com/css2%3Ffamily%3DInter:wght%40400%3B600%3B700%26family%3DNoto%2BSans%2BTC:wght%40400%3B500%3B700%26display%3Dswap');body {font-family: 'Inter', 'Noto Sans TC', sans-serif;background-color: #F9FAFB; /* 最淺背景 /}/ 增加童趣背景點點圖案 /.page-background {background-image: radial-gradient(#E5E7EB 1px, transparent 0);background-size: 20px 20px;}.container-box {max-width: 600px;min-height: 100vh;background-color: white;box-shadow: 0 15px 20px rgba(0, 0, 0, 0.1);}.egg-hatch-animation {animation: shake 0.5s infinite alternate;box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); / 黃色光暈 /}@keyframes shake {from { transform: rotate(-3deg); }to { transform: rotate(3deg); }}.points-pulse {animation: pulse 1s infinite;}@keyframes pulse {0% { transform: scale(1); }50% { transform: scale(1.02); }100% { transform: scale(1); }}/ 底部導覽列陰影效果 */#nav-bar {box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);}
+/*
+=========================================
+1. 基礎設定與字型載入
+=========================================
+*/
+
+/* 修正後的 Google Fonts 載入語法 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+body {
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    background-color: #F9FAFB; /* 最淺背景 */
+}
+
+/*
+=========================================
+2. 顏色變數與 Tailwind 擴充 (建議在 Tailwind Config 中定義，但此處為單一 CSS 實現)
+=========================================
+*/
+:root {
+    --color-primary: #4C51BF; /* 深靛藍/紫色 */
+    --color-secondary: #FFC107; /* 亮黃色/金幣色 */
+    --color-accent: #00BCD4; /* 青綠色/強調色 */
+    --color-success: #4CAF50; /* 成功綠 */
+    --color-danger: #F44336; /* 錯誤紅 */
+    --color-pink-light: #FF80AB; /* 柔和粉 */
+    --color-bg-light: #FFFFFF; /* 內容淺背景 */
+}
+
+/* Tailwind 顏色映射 (確保 inline style 也能作用) */
+.text-primary { color: var(--color-primary); }
+.bg-primary { background-color: var(--color-primary); }
+.text-secondary { color: var(--color-secondary); }
+.bg-secondary { background-color: var(--color-secondary); }
+.text-accent { color: var(--color-accent); }
+.bg-accent { background-color: var(--color-accent); }
+.text-success { color: var(--color-success); }
+.bg-success { background-color: var(--color-success); }
+.text-danger { color: var(--color-danger); }
+.bg-danger { background-color: var(--color-danger); }
+.bg-pink-light { background-color: var(--color-pink-light); }
+.bg-bg-light { background-color: var(--color-bg-light); }
+
+
+/*
+=========================================
+3. 佈局與容器樣式 (確保 RWD 效果)
+=========================================
+*/
+
+/* 增加童趣背景點點圖案 */
+.page-background {
+    background-image: radial-gradient(#E5E7EB 1px, transparent 0);
+    background-size: 20px 20px;
+}
+
+/* 內容主容器，限制寬度並居中，適用於行動裝置優先的設計 */
+.container-box {
+    max-width: 600px;
+    min-height: 100vh;
+    background-color: white;
+    box-shadow: 0 15px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* 確保 Header 和 Footer 在手機上保持固定 */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 30; /* 確保在內容之上 */
+}
+
+footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40; /* 確保在所有內容之上 */
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05); /* 底部導覽列陰影效果 */
+}
+
+/*
+=========================================
+4. 動畫效果
+=========================================
+*/
+
+/* 精靈蛋孵化動畫 (搖晃) */
+.egg-hatch-animation {
+    animation: shake 0.5s infinite alternate;
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); /* 黃色光暈 */
+}
+
+@keyframes shake {
+    from { transform: rotate(-3deg); }
+    to { transform: rotate(3deg); }
+}
+
+/* 點數區塊脈衝動畫 (吸引注意力) */
+.points-pulse {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/*
+=========================================
+5. RWD 調整 (如果使用 Tailwind，大部分透過 Class 處理，但此處為 CSS 補充)
+=========================================
+*/
+/* 對於大型螢幕 (Tablet/Desktop)，我們可以讓容器兩側留白 
+    (已在 HTML 中透過 max-w-lg mx-auto 實現，此處無需額外設定)
+*/
