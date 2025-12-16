@@ -119,7 +119,7 @@ function closeModal() {
 window.closeModal = closeModal; // 確保 HTML onclick="closeModal()" 可用
 
 /** 顯示 Modal */
-export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) {
+export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = () => {}) { // 這裡使用 export
     const modalContainer = document.getElementById('modal-container');
     const modalContent = document.getElementById('modal-content');
     
@@ -143,6 +143,7 @@ export function showModal(title, bodyHtml, confirmText = '確定', onConfirm = (
         window.closeModal();
     };
 }
+// 移除 window.showModal = showModal; 避免與 export 衝突
 
 // --- Kid Switch Functions ---
 
@@ -383,4 +384,4 @@ export async function initPage(pageRenderFunc, pageViewName) {
 // 匯出常用的 Firestore 函式
 export { getFirestore, getDoc, setDoc, writeBatch, arrayUnion, getDocs, doc, collection };
 // 匯出狀態
-export { state, showToast };
+export { state, showToast, showModal };
