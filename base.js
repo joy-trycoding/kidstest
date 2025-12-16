@@ -195,3 +195,33 @@ export async function initPage(renderFn, viewName) {
 export async function setDoc(ref, data, options = { merge: true }) {
   return fsSetDoc(ref, data, options);
 }
+async function ensureDefaultData() {
+    const tasksRef = getTaskCollectionRef();
+    const rewardsRef = getRewardCollectionRef();
+  
+    const tasksSnap = await getDocs(tasksRef);
+    const rewardsSnap = await getDocs(rewardsRef);
+  
+    const batch = writeBatch(db);
+  
+    if (tasksSnap.empty) {
+      const defaultTasks = [
+        { name: "整理玩具", description: "自己把玩具收好", points: 10, cycle: "daily" },
+        { name: "刷牙洗臉", description: "早晚刷牙洗臉", points: 5, cycle: "daily" },
+        { name: "幫忙家事", description: "幫爸爸媽媽做一件事", points: 20, cycle: "once" },
+      ];
+      defaultTasks.forEach(t => batch.set(doc(tasksRef), t));
+    }
+  
+    if (rewardsSnap.empty) {
+      const defaultRewards = [
+        { name: "看卡通 30 分鐘", cost: 50 },
+        { name: "小玩具", cost: 150 },
+        { name: "家庭活動", cost: 300 },
+      ];
+      defaultRewards.forEach(r => batch.set(doc(rewardsRef), r));
+    }
+  
+    await batch.commit();
+  }
+  
