@@ -11,16 +11,19 @@
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#4F46E5', // Indigo 600
-                        'secondary': '#FBBF24', // Amber 400 (for points)
+                        'primary': '#6366F1', // Indigo 500
+                        'secondary': '#FBBF24', // Amber 400 (Points)
+                        'accent': '#2DD4BF', // Teal 400 (New playful accent)
+                        'pink-light': '#FDBA74', // Orange 300 (Softer, kid-friendly)
                         'success': '#10B981', // Emerald 500
                         'danger': '#EF4444', // Red 500
-                        'bg-light': '#F9FAFB', // Gray 50
-                        'bg-dark': '#1F2937', // Gray 800
+                        'bg-light': '#F3F4F6', // Gray 100
                     },
-                    fontFamily: {
-                        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
-                    },
+                    borderRadius: {
+                        'xl': '0.75rem',
+                        '2xl': '1rem',
+                        '3xl': '1.5rem', // Bubbly feel
+                    }
                 }
             }
         }
@@ -29,35 +32,45 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
-            background-color: #e5e5e5; /* 輕微灰色背景 */
+            background-color: #F9FAFB; /* 最淺背景 */
+        }
+        /* 增加童趣背景點點圖案 */
+        .page-background {
+            background-image: radial-gradient(#E5E7EB 1px, transparent 0);
+            background-size: 20px 20px;
         }
         .container-box {
             max-width: 600px;
             min-height: 100vh;
             background-color: white;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 15px 20px rgba(0, 0, 0, 0.1);
         }
         .egg-hatch-animation {
             animation: shake 0.5s infinite alternate;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.8); /* 黃色光暈 */
         }
         @keyframes shake {
-            from { transform: rotate(-5deg); }
-            to { transform: rotate(5deg); }
+            from { transform: rotate(-3deg); }
+            to { transform: rotate(3deg); }
         }
         .points-pulse {
             animation: pulse 1s infinite;
         }
         @keyframes pulse {
             0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.02); }
             100% { transform: scale(1); }
+        }
+        /* 底部導覽列陰影效果 */
+        #nav-bar {
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.05);
         }
     </style>
 </head>
-<body class="flex justify-center p-0 sm:p-4">
+<body class="flex justify-center p-0 sm:p-4 page-background">
 
     <!-- App Container -->
-    <div id="app" class="container-box w-full flex flex-col">
+    <div id="app" class="container-box w-full flex flex-col rounded-3xl overflow-hidden">
         <!-- Loading State -->
         <div id="loading-screen" class="flex flex-col items-center justify-center min-h-screen p-6 text-primary">
             <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -70,7 +83,7 @@
         <!-- Main Content Area (Hidden until loaded) -->
         <div id="content" class="flex-grow hidden">
             <!-- Header and Kid Switch -->
-            <header class="p-4 bg-primary text-white sticky top-0 z-10 shadow-md">
+            <header class="p-4 bg-primary text-white sticky top-0 z-10 shadow-lg">
                 <div class="flex justify-between items-center">
                     <h1 class="text-xl font-bold">自主成長小助手</h1>
                     <div id="kid-info" class="flex items-center space-x-2">
@@ -80,12 +93,12 @@
             </header>
 
             <!-- Main View Content -->
-            <main id="view-content" class="p-4 flex-grow overflow-y-auto pb-24">
+            <main id="view-content" class="p-4 flex-grow overflow-y-auto pb-24 bg-bg-light">
                 <!-- Content will be rendered here -->
             </main>
 
             <!-- Bottom Navigation -->
-            <footer class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white border-t border-gray-200 shadow-lg sm:rounded-b-lg">
+            <footer class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white border-t border-gray-200 shadow-lg sm:rounded-b-3xl">
                 <div id="nav-bar" class="flex justify-around text-center py-2">
                     <!-- Nav items will be rendered here -->
                 </div>
@@ -95,7 +108,7 @@
 
     <!-- Modal for Forms/Inputs (e.g., Edit Task, Name Spirit) -->
     <div id="modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-        <div id="modal-content" class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-95 opacity-0">
+        <div id="modal-content" class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md transform transition-all duration-300 scale-95 opacity-0">
             <!-- Modal content will be inserted here -->
         </div>
     </div>
@@ -159,7 +172,7 @@
             const icon = type === 'success' ? '✔️' : type === 'danger' ? '❌' : 'ℹ️';
 
             const toast = document.createElement('div');
-            toast.className = `p-3 rounded-lg shadow-xl text-white font-medium flex items-center space-x-2 ${color} transition-all duration-300 transform translate-x-full opacity-0`;
+            toast.className = `p-3 rounded-xl shadow-xl text-white font-medium flex items-center space-x-2 ${color} transition-all duration-300 transform translate-x-full opacity-0`;
             toast.innerHTML = `<span>${icon}</span><span class="whitespace-nowrap">${message}</span>`;
             
             toastContainer.appendChild(toast);
@@ -575,11 +588,13 @@
             if (state.kids.length === 0) {
                 state.currentView = 'settings';
                 viewContent.innerHTML = `
-                    <div class="text-center p-8 bg-yellow-50 rounded-xl mt-8">
-                        <p class="text-xl font-bold text-primary mb-4">歡迎使用自主成長小助手！</p>
-                        <p class="text-gray-600">請先到「設定」頁面新增小朋友資料，才能開始使用喔！</p>
+                    <div class="text-center p-8 bg-pink-light/50 rounded-3xl mt-8 shadow-inner border border-pink-light">
+                        <p class="text-3xl font-bold text-primary mb-4">歡迎來到魔法世界！</p>
+                        <p class="text-gray-700 font-medium">請先到右下角的「設定 ⚙️」頁面新增小朋友資料，才能開始累積點數孵化精靈喔！</p>
                     </div>
                 `;
+                // 確保 nav bar 正確高亮
+                renderNavBar(); 
                 renderSettings(true); // Force render settings for Kid Setup
                 return;
             }
@@ -614,8 +629,8 @@
 
             kidInfo.innerHTML = `
                 <div class="text-sm font-medium">當前：${currentKidNickname}</div>
-                <button onclick="showKidSwitchModal()" class="bg-white text-primary text-xs font-bold px-3 py-1 rounded-full hover:bg-gray-100 transition-colors">
-                    切換
+                <button onclick="showKidSwitchModal()" class="bg-accent/50 text-white text-xs font-bold px-3 py-1 rounded-full hover:bg-accent transition-colors shadow-md">
+                    切換 🔄
                 </button>
             `;
         }
@@ -632,8 +647,8 @@
 
             navBar.innerHTML = navItems.map(item => `
                 <button onclick="changeView('${item.id}')" class="flex flex-col items-center p-2 transition-colors ${state.currentView === item.id ? 'text-primary font-bold' : 'text-gray-500 hover:text-primary'}">
-                    <span class="text-xl">${item.icon}</span>
-                    <span class="text-xs">${item.label}</span>
+                    <span class="text-2xl">${item.icon}</span>
+                    <span class="text-xs mt-1">${item.label}</span>
                 </button>
             `).join('');
         }
@@ -661,15 +676,15 @@
                     return true; 
                 })
                 .map(task => `
-                    <div class="flex items-center justify-between bg-bg-light p-4 rounded-xl shadow-sm mb-3 border-l-4 border-primary">
+                    <div class="flex items-center justify-between bg-white p-4 rounded-2xl shadow-lg mb-4 border-b-4 border-accent">
                         <div class="flex-1 min-w-0 mr-4">
-                            <p class="font-bold text-lg text-gray-800 truncate">${task.name}</p>
-                            <p class="text-sm text-gray-500">${task.description}</p>
+                            <p class="font-black text-xl text-primary truncate">${task.name}</p>
+                            <p class="text-sm text-gray-500 mt-1">${task.description}</p>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <span class="text-secondary font-extrabold text-xl whitespace-nowrap">+${task.points}</span>
-                            <button onclick="completeTask('${task.id}', ${task.points})" class="flex items-center justify-center w-10 h-10 bg-success text-white rounded-full shadow-lg hover:bg-green-600 transition-colors">
-                                <span class="text-xl">✔️</span>
+                            <span class="text-secondary font-extrabold text-2xl whitespace-nowrap">+${task.points}</span>
+                            <button onclick="completeTask('${task.id}', ${task.points})" class="flex items-center justify-center w-12 h-12 bg-success text-white rounded-full shadow-2xl hover:bg-green-600 transition-transform active:scale-95 transform duration-150">
+                                <span class="text-2xl">🎉</span>
                             </button>
                         </div>
                     </div>
@@ -680,14 +695,14 @@
             const element = document.createElement('div');
             element.innerHTML = `
                 <h2 class="text-2xl font-extrabold text-gray-800 mb-2">${kidNickname} 的點數狀況</h2>
-                <div class="text-center p-6 mb-6 rounded-2xl bg-secondary shadow-xl text-white points-pulse">
-                    <p class="text-sm">您目前累積了</p>
-                    <p class="text-6xl font-black">${kidState.points || 0}</p>
-                    <p class="text-2xl font-bold">點數</p>
+                <div class="text-center p-6 mb-8 rounded-3xl bg-secondary shadow-2xl text-white points-pulse border-4 border-yellow-300">
+                    <p class="text-lg font-bold">累積金幣</p>
+                    <p class="text-7xl font-black">${kidState.points || 0}</p>
+                    <p class="text-3xl font-bold">點</p>
                 </div>
 
-                <h2 class="text-2xl font-extrabold text-gray-800 mb-4">📅 今日待辦任務</h2>
-                ${taskElements || '<div class="text-center p-6 bg-gray-100 rounded-xl text-gray-500">太棒了！今天沒有更多任務了！</div>'}
+                <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌟 今日待辦任務</h2>
+                ${taskElements || '<div class="text-center p-8 bg-accent/20 rounded-2xl text-accent font-bold shadow-inner">太棒了！所有的任務都完成了，可以去領獎勵囉！</div>'}
             `;
             return element;
         }
@@ -698,23 +713,24 @@
             const currentPoints = kidState.points || 0;
 
             const rewardElements = state.rewards.map(reward => `
-                <div class="bg-white p-4 rounded-xl shadow-md flex flex-col justify-between h-full border-2 border-gray-100 hover:border-secondary transition-all duration-300">
-                    <div>
-                        <p class="text-xl font-bold text-gray-800 mb-2">${reward.name}</p>
+                <div class="bg-white p-5 rounded-3xl shadow-xl flex flex-col justify-between h-full border-4 border-pink-light/50 transition-all duration-300">
+                    <div class="text-center">
+                        <p class="text-4xl mb-3">🎁</p>
+                        <p class="text-xl font-black text-gray-800 mb-2">${reward.name}</p>
                         <p class="text-sm text-gray-500 mb-4">${reward.description}</p>
                     </div>
                     <div class="mt-auto">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-lg font-bold">兌換點數:</span>
-                            <span class="text-secondary font-extrabold text-2xl">${reward.cost}</span>
+                        <div class="flex items-center justify-center mb-3 p-2 bg-secondary/20 rounded-xl">
+                            <span class="text-lg font-bold mr-2">兌換點數:</span>
+                            <span class="text-secondary font-extrabold text-3xl">${reward.cost}</span>
                         </div>
                         <button 
                             onclick="redeemReward('${reward.id}', ${reward.cost})"
-                            class="w-full py-2 rounded-lg text-white font-semibold transition-colors
-                            ${currentPoints >= reward.cost ? 'bg-primary hover:bg-indigo-600' : 'bg-gray-400 cursor-not-allowed'}"
+                            class="w-full py-3 rounded-2xl text-white font-black transition-colors shadow-lg
+                            ${currentPoints >= reward.cost ? 'bg-accent hover:bg-teal-500 active:scale-95' : 'bg-gray-400 cursor-not-allowed'}"
                             ${currentPoints < reward.cost ? 'disabled' : ''}
                         >
-                            ${currentPoints >= reward.cost ? '🎁 立即兌換' : `還差 ${reward.cost - currentPoints} 點`}
+                            ${currentPoints >= reward.cost ? '兌換獎勵 ✨' : `還差 ${reward.cost - currentPoints} 點`}
                         </button>
                     </div>
                 </div>
@@ -722,14 +738,14 @@
 
             const element = document.createElement('div');
             element.innerHTML = `
-                <div class="text-center p-4 mb-6 rounded-xl bg-primary shadow-xl text-white">
-                    <p class="text-xl font-bold">目前點數</p>
-                    <p class="text-5xl font-black text-secondary">${currentPoints}</p>
+                <div class="text-center p-4 mb-8 rounded-3xl bg-primary shadow-2xl text-white border-4 border-indigo-600">
+                    <p class="text-xl font-bold">您的金幣餘額</p>
+                    <p class="text-6xl font-black text-secondary">${currentPoints}</p>
                 </div>
 
-                <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌟 獎勵商城</h2>
+                <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🛍️ 獎勵商城</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    ${rewardElements || '<div class="col-span-full text-center p-6 bg-gray-100 rounded-xl text-gray-500">家長還沒有設定獎勵喔！</div>'}
+                    ${rewardElements || '<div class="col-span-full text-center p-8 bg-gray-100 rounded-2xl text-gray-500 shadow-inner">家長還沒有設定獎勵商品喔！</div>'}
                 </div>
             `;
             return element;
@@ -747,37 +763,37 @@
 
             const element = document.createElement('div');
             element.innerHTML = `
-                <div class="text-center p-4 mb-6 rounded-xl bg-success shadow-xl text-white">
-                    <p class="text-xl font-bold">您目前有</p>
-                    <p class="text-5xl font-black">${numEggs}</p>
-                    <p class="text-2xl font-bold">顆蛋可孵化！</p>
+                <div class="text-center p-6 mb-8 rounded-3xl bg-pink-light shadow-2xl text-primary border-4 border-red-300">
+                    <p class="text-xl font-bold">您有</p>
+                    <p class="text-7xl font-black text-white">${numEggs}</p>
+                    <p class="text-2xl font-bold">顆精靈蛋可孵化！</p>
                     <button 
                         onclick="hatchSpirit()"
-                        class="mt-3 px-6 py-2 rounded-full font-bold transition-colors shadow-lg
-                        ${numEggs >= 1 ? 'bg-white text-success hover:bg-gray-100 egg-hatch-animation' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}"
+                        class="mt-4 px-6 py-3 rounded-full font-black text-lg transition-colors shadow-2xl
+                        ${numEggs >= 1 ? 'bg-secondary text-primary hover:bg-yellow-500 egg-hatch-animation active:scale-90' : 'bg-gray-400 text-gray-200 cursor-not-allowed'}"
                         ${numEggs < 1 ? 'disabled' : ''}
                     >
-                        ${numEggs >= 1 ? '點擊孵化精靈蛋' : `累積 ${pointsNeeded} 點可獲得一顆蛋`}
+                        ${numEggs >= 1 ? '💖 點擊孵化魔法蛋' : `累積 ${pointsNeeded} 點可獲得下一顆蛋`}
                     </button>
                 </div>
 
-                <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌟 我的精靈 (${successfulSpirits.length})</h2>
+                <h2 class="text-2xl font-extrabold text-gray-800 mb-4">🌈 我的精靈收藏 (${successfulSpirits.length})</h2>
                 <div class="grid grid-cols-3 gap-4 mb-8">
                     ${successfulSpirits.map(s => `
-                        <div class="text-center p-3 bg-bg-light rounded-xl shadow-inner border border-primary/50">
-                            <p class="text-4xl">${s.icon}</p>
-                            <p class="text-sm font-semibold truncate">${s.customName || s.name}</p>
-                            <p class="text-xs text-gray-500">${s.customName ? s.name : '等待命名'}</p>
+                        <div class="text-center p-4 bg-white rounded-2xl shadow-md border-2 border-accent/50">
+                            <p class="text-5xl">${s.icon}</p>
+                            <p class="text-sm font-black truncate text-primary mt-1">${s.customName || s.name}</p>
+                            <p class="text-xs text-gray-500">${s.customName ? s.name : '未命名'}</p>
                         </div>
-                    `).join('') || '<div class="col-span-3 text-center p-4 bg-gray-100 rounded-xl text-gray-500">還沒有成功孵化的精靈喔！</div>'}
+                    `).join('') || '<div class="col-span-3 text-center p-6 bg-gray-100 rounded-2xl text-gray-500">還沒有成功孵化的精靈喔！</div>'}
                 </div>
 
                 <h2 class="text-2xl font-extrabold text-gray-800 mb-4">💔 孵化紀錄</h2>
-                <div class="flex items-center space-x-4 bg-gray-100 p-4 rounded-xl">
-                    <span class="text-4xl">💔</span>
+                <div class="flex items-center space-x-4 bg-white p-4 rounded-2xl shadow-md border-2 border-danger/50">
+                    <span class="text-4xl text-danger">💔</span>
                     <div>
-                        <p class="font-bold text-lg">未成功孵化數量</p>
-                        <p class="text-2xl font-bold text-danger">${failedSpirits.length}</p>
+                        <p class="font-bold text-lg">未成功孵化 (碎蛋)</p>
+                        <p class="text-3xl font-bold text-danger">${failedSpirits.length}</p>
                     </div>
                 </div>
             `;
@@ -786,30 +802,32 @@
 
         /** 渲染設定頁面 (Parent View) */
         function renderSettings(forceKidSetup = false) {
+            // 這個函數已經確認結構正確，應該能正常顯示內容
             const currentKid = state.kids.find(k => k.id === state.currentKidId);
             
             const element = document.createElement('div');
             element.innerHTML = `
-                ${!forceKidSetup ? `
+                <div class="bg-white p-5 rounded-3xl shadow-xl border-4 border-primary/20 mb-6">
                     <div class="flex justify-between items-center mb-6 border-b pb-3">
-                        <h2 class="text-2xl font-bold text-primary">⚙️ 家長設定中心</h2>
-                        <span class="text-sm text-gray-500">UID: ${userId.substring(0, 8)}...</span>
+                        <h2 class="text-2xl font-black text-primary">⚙️ 家長設定中心</h2>
+                        <span class="text-xs text-gray-500">UID: ${userId.substring(0, 8)}...</span>
                     </div>
                     
-                    <h3 class="text-xl font-bold mb-3 mt-4 text-gray-800">✅ 任務清單管理</h3>
-                    <button onclick="showEditTaskModal()" class="w-full py-2 mb-4 bg-primary text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors">+ 新增任務</button>
-                    ${renderTaskList()}
-                
-                    <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">🛍️ 獎勵商城編輯</h3>
-                    <button onclick="showEditRewardModal()" class="w-full py-2 mb-4 bg-primary text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors">+ 新增獎勵</button>
-                    ${renderRewardList()}
-                
-                    <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">👨‍👩‍👧‍👦 小朋友資料設定</h3>
-                    <button onclick="showEditKidModal()" class="w-full py-2 mb-4 bg-success text-white font-semibold rounded-lg hover:bg-green-600 transition-colors">+ 新增小朋友</button>
-                ` : `<h3 class="text-2xl font-bold mb-6 text-primary">👨‍👩‍👧‍👦 請先設定小朋友資料</h3>`}
-                
-                ${renderKidList(currentKid)}
-                
+                    ${!forceKidSetup ? `
+                        <h3 class="text-xl font-bold mb-3 mt-4 text-gray-800">✅ 任務清單管理</h3>
+                        <button onclick="showEditTaskModal()" class="w-full py-3 mb-4 bg-accent text-white font-black rounded-xl hover:bg-teal-500 transition-colors shadow-md">+ 新增任務</button>
+                        ${renderTaskList()}
+                    
+                        <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">🛍️ 獎勵商城編輯</h3>
+                        <button onclick="showEditRewardModal()" class="w-full py-3 mb-4 bg-accent text-white font-black rounded-xl hover:bg-teal-500 transition-colors shadow-md">+ 新增獎勵</button>
+                        ${renderRewardList()}
+                    
+                        <h3 class="text-xl font-bold mb-3 mt-8 text-gray-800">👨‍👩‍👧‍👦 小朋友資料設定</h3>
+                        <button onclick="showEditKidModal()" class="w-full py-3 mb-4 bg-pink-light text-white font-black rounded-xl hover:bg-orange-400 transition-colors shadow-md">+ 新增小朋友</button>
+                    ` : `<h3 class="text-2xl font-bold mb-6 text-primary">👨‍👩‍👧‍👦 請先設定小朋友資料</h3>`}
+                    
+                    ${renderKidList(currentKid)}
+                </div>
             `;
             return element;
         }
@@ -818,54 +836,54 @@
 
         function renderTaskList() {
             const list = state.tasks.map(task => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm mb-2 border">
+                <div class="flex items-center justify-between p-3 bg-bg-light rounded-xl shadow-inner mb-2 border border-gray-200">
                     <div class="flex-1 min-w-0 mr-4">
                         <p class="font-semibold text-gray-800 truncate">${task.name} <span class="text-xs text-primary ml-2">(${task.cycle === 'daily' ? '每日' : '一次性'})</span></p>
                         <p class="text-sm text-gray-500">點數: ${task.points}</p>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="showEditTaskModal('${task.id}')" class="text-primary hover:text-indigo-600 text-lg">📝</button>
-                        <button onclick="deleteItem('task', '${task.id}')" class="text-danger hover:text-red-600 text-lg">🗑️</button>
+                        <button onclick="showEditTaskModal('${task.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
+                        <button onclick="deleteItem('task', '${task.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
                     </div>
                 </div>
             `).join('');
 
-            return list || '<p class="text-gray-500 mb-4">目前沒有設定任何任務。</p>';
+            return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何任務。</p>';
         }
 
         function renderRewardList() {
             const list = state.rewards.map(reward => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm mb-2 border">
+                <div class="flex items-center justify-between p-3 bg-bg-light rounded-xl shadow-inner mb-2 border border-gray-200">
                     <div class="flex-1 min-w-0 mr-4">
                         <p class="font-semibold text-gray-800 truncate">${reward.name}</p>
                         <p class="text-sm text-gray-500">兌換點數: ${reward.cost}</p>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="showEditRewardModal('${reward.id}')" class="text-primary hover:text-indigo-600 text-lg">📝</button>
-                        <button onclick="deleteItem('reward', '${reward.id}')" class="text-danger hover:text-red-600 text-lg">🗑️</button>
+                        <button onclick="showEditRewardModal('${reward.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
+                        <button onclick="deleteItem('reward', '${reward.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
                     </div>
                 </div>
             `).join('');
 
-            return list || '<p class="text-gray-500 mb-4">目前沒有設定任何獎勵商品。</p>';
+            return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何獎勵商品。</p>';
         }
 
         function renderKidList(currentKid) {
             const list = state.kids.map(kid => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm mb-2 border ${kid.id === currentKid?.id ? 'border-success ring-2 ring-success/50' : 'border-gray-200'}">
+                <div class="flex items-center justify-between p-3 bg-white rounded-xl shadow-md mb-2 border-2 ${kid.id === currentKid?.id ? 'border-primary ring-2 ring-primary/50' : 'border-gray-200'}">
                     <div class="flex-1 min-w-0 mr-4">
-                        <p class="font-semibold text-gray-800 truncate">${kid.nickname} ${kid.id === currentKid?.id ? '(當前)' : ''}</p>
-                        <p class="text-sm text-gray-500">年齡: ${kid.age || '未填'} / 性別: ${kid.gender || '未填'}</p>
+                        <p class="font-black text-gray-800 truncate">${kid.nickname} ${kid.id === currentKid?.id ? '(當前)' : ''}</p>
+                        <p class="text-xs text-gray-500">年齡: ${kid.age || '未填'} / 性別: ${kid.gender || '未填'}</p>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="switchKid('${kid.id}')" class="text-primary hover:text-indigo-600 text-lg">🔄</button>
-                        <button onclick="showEditKidModal('${kid.id}')" class="text-primary hover:text-indigo-600 text-lg">📝</button>
-                        <button onclick="deleteKid('${kid.id}')" class="text-danger hover:text-red-600 text-lg">🗑️</button>
+                        <button onclick="switchKid('${kid.id}')" class="text-accent hover:text-teal-600 text-xl">🔄</button>
+                        <button onclick="showEditKidModal('${kid.id}')" class="text-primary hover:text-indigo-600 text-xl">📝</button>
+                        <button onclick="deleteKid('${kid.id}')" class="text-danger hover:text-red-600 text-xl">🗑️</button>
                     </div>
                 </div>
             `).join('');
             
-            return list || '<p class="text-gray-500 mb-4">目前沒有設定任何小朋友。</p>';
+            return list || '<p class="text-gray-500 mb-4 p-3 bg-gray-50 rounded-lg">目前沒有設定任何小朋友。</p>';
         }
 
         // --- Kid CRUD Modals ---
@@ -876,22 +894,22 @@
             const title = isEdit ? `編輯 ${kid.nickname}` : '新增小朋友資料';
             
             const contentHTML = `
-                <label class="block mb-2">暱稱 (必填)</label>
-                <input type="text" id="kidNickname" value="${kid.nickname || ''}" class="w-full p-2 border rounded-lg mb-4">
+                <label class="block mb-2 font-medium">暱稱 (必填)</label>
+                <input type="text" id="kidNickname" value="${kid.nickname || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
                 
-                <label class="block mb-2">年齡</label>
-                <input type="number" id="kidAge" value="${kid.age || ''}" class="w-full p-2 border rounded-lg mb-4">
+                <label class="block mb-2 font-medium">年齡</label>
+                <input type="number" id="kidAge" value="${kid.age || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
                 
-                <label class="block mb-2">性別</label>
-                <select id="kidGender" class="w-full p-2 border rounded-lg">
+                <label class="block mb-2 font-medium">性別</label>
+                <select id="kidGender" class="w-full p-3 border border-gray-300 rounded-xl focus:border-accent focus:ring focus:ring-accent/50">
                     <option value="">請選擇</option>
-                    <option value="male" ${kid.gender === 'male' ? 'selected' : ''}>男生</option>
-                    <option value="female" ${kid.gender === 'female' ? 'selected' : ''}>女生</option>
+                    <option value="male" ${kid.gender === 'male' ? 'selected' : ''}>男生 👦</option>
+                    <option value="female" ${kid.gender === 'female' ? 'selected' : ''}>女生 👧</option>
                 </select>
             `;
 
             const saveButton = `
-                <button onclick="saveKid('${kidId}')" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">${isEdit ? '儲存變更' : '新增'}</button>
+                <button onclick="saveKid('${kidId}')" class="px-4 py-2 bg-pink-light text-white rounded-lg font-bold hover:bg-orange-400">${isEdit ? '儲存變更' : '新增'}</button>
             `;
             showModal(title, contentHTML, saveButton);
         };
@@ -943,8 +961,8 @@
 
         window.showKidSwitchModal = () => {
             const contentHTML = state.kids.map(kid => `
-                <button onclick="switchKidAndCloseModal('${kid.id}')" class="w-full text-left p-3 rounded-lg border mb-2 transition-all ${kid.id === state.currentKidId ? 'bg-primary text-white border-primary' : 'bg-white hover:bg-gray-50'}">
-                    ${kid.nickname} ${kid.id === state.currentKidId ? ' (當前)' : ''}
+                <button onclick="switchKidAndCloseModal('${kid.id}')" class="w-full text-left p-4 rounded-xl border-2 transition-all ${kid.id === state.currentKidId ? 'bg-primary text-white border-primary shadow-lg' : 'bg-bg-light hover:bg-gray-100 border-gray-200'}">
+                    <span class="font-bold text-lg">${kid.nickname}</span> ${kid.id === state.currentKidId ? ' (當前 👑)' : ''}
                 </button>
             `).join('');
 
@@ -964,17 +982,17 @@
             const title = isEdit ? `編輯任務: ${task.name}` : '新增任務';
             
             const contentHTML = `
-                <label class="block mb-2">任務名稱 (必填)</label>
-                <input type="text" id="taskName" value="${task.name || ''}" class="w-full p-2 border rounded-lg mb-4">
+                <label class="block mb-2 font-medium">任務名稱 (必填)</label>
+                <input type="text" id="taskName" value="${task.name || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
                 
-                <label class="block mb-2">任務說明</label>
-                <textarea id="taskDescription" class="w-full p-2 border rounded-lg mb-4">${task.description || ''}</textarea>
+                <label class="block mb-2 font-medium">任務說明</label>
+                <textarea id="taskDescription" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">${task.description || ''}</textarea>
                 
-                <label class="block mb-2">獎勵點數 (必填)</label>
-                <input type="number" id="taskPoints" value="${task.points || ''}" class="w-full p-2 border rounded-lg mb-4">
+                <label class="block mb-2 font-medium">獎勵點數 (必填)</label>
+                <input type="number" id="taskPoints" value="${task.points || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
                 
-                <label class="block mb-2">任務週期</label>
-                <select id="taskCycle" class="w-full p-2 border rounded-lg">
+                <label class="block mb-2 font-medium">任務週期</label>
+                <select id="taskCycle" class="w-full p-3 border border-gray-300 rounded-xl focus:border-accent focus:ring focus:ring-accent/50">
                     <option value="daily" ${task.cycle === 'daily' ? 'selected' : ''}>每日任務</option>
                     <option value="once" ${task.cycle === 'once' ? 'selected' : ''}>一次性任務</option>
                     <option value="weekly" ${task.cycle === 'weekly' ? 'selected' : ''}>每週任務 (暫不支持複雜日期)</option>
@@ -982,7 +1000,7 @@
             `;
 
             const saveButton = `
-                <button onclick="saveTaskForm('${taskId}')" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">${isEdit ? '儲存變更' : '新增'}</button>
+                <button onclick="saveTaskForm('${taskId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">${isEdit ? '儲存變更' : '新增'}</button>
             `;
             showModal(title, contentHTML, saveButton);
         };
@@ -1004,18 +1022,18 @@
             const title = isEdit ? `編輯獎勵: ${reward.name}` : '新增獎勵商品';
             
             const contentHTML = `
-                <label class="block mb-2">商品名稱 (必填)</label>
-                <input type="text" id="rewardName" value="${reward.name || ''}" class="w-full p-2 border rounded-lg mb-4">
+                <label class="block mb-2 font-medium">商品名稱 (必填)</label>
+                <input type="text" id="rewardName" value="${reward.name || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
                 
-                <label class="block mb-2">商品說明</label>
-                <textarea id="rewardDescription" class="w-full p-2 border rounded-lg mb-4">${reward.description || ''}</textarea>
+                <label class="block mb-2 font-medium">商品說明</label>
+                <textarea id="rewardDescription" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">${reward.description || ''}</textarea>
                 
-                <label class="block mb-2">兌換點數 (必填)</label>
-                <input type="number" id="rewardCost" value="${reward.cost || ''}" class="w-full p-2 border rounded-lg mb-4">
+                <label class="block mb-2 font-medium">兌換點數 (必填)</label>
+                <input type="number" id="rewardCost" value="${reward.cost || ''}" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:border-accent focus:ring focus:ring-accent/50">
             `;
 
             const saveButton = `
-                <button onclick="saveRewardForm('${rewardId}')" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">${isEdit ? '儲存變更' : '新增'}</button>
+                <button onclick="saveRewardForm('${rewardId}')" class="px-4 py-2 bg-accent text-white rounded-lg font-bold hover:bg-teal-500">${isEdit ? '儲存變更' : '新增'}</button>
             `;
             showModal(title, contentHTML, saveButton);
         };
@@ -1058,15 +1076,32 @@
                         // 設置所有數據監聽器
                         setupListeners();
                     } else {
-                        // 處理登出或未驗證狀態
+                        // 如果匿名登入啟用但失敗，可能規則有問題
                         state.isAuthReady = false;
-                        document.getElementById('loading-screen').innerHTML = `<p class="text-danger">認證失敗，請檢查 Firebase 配置或網路連線。</p>`;
+                        document.getElementById('loading-screen').innerHTML = `
+                            <div class="text-center p-8">
+                                <p class="text-xl font-bold text-danger">認證失敗或網路中斷。</p>
+                                <p class="mt-4 text-sm text-gray-600">請確認您的 Firebase 專案已啟用 **匿名登入 (Anonymous)** 功能，並且 Firestore **安全規則**允許寫入操作。</p>
+                            </div>
+                        `;
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                document.getElementById('loading-screen').innerHTML = `<p class="text-danger">應用程式初始化失敗: ${error.message}。請檢查您的 Firebase 配置。</p>`;
+                // 顯示初始化錯誤，提供除錯提示
+                document.getElementById('loading-screen').innerHTML = `
+                    <div class="text-center p-8 bg-white rounded-xl shadow-lg">
+                        <p class="text-xl font-bold text-danger">應用程式初始化失敗 (App Error)</p>
+                        <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
+                        <p class="mt-4 text-sm font-bold text-primary">除錯提示:</p>
+                        <ul class="list-disc list-inside text-left text-sm text-gray-600 mx-auto w-fit">
+                            <li>請檢查 **網路連線**。</li>
+                            <li>請確認您的 Firebase 專案已啟用 **Authentication -> 匿名登入 (Anonymous)**。</li>
+                            <li>請確認您的 **Firestore 安全規則**允許寫入操作（因為 App 會嘗試儲存初始數據）。</li>
+                        </ul>
+                    </div>
+                `;
             }
         }
 
