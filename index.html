@@ -4,12 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>自主成長小助手 - Gamified Autonomy Helper</title>
-    <!-- 引用 Tailwind CSS 函式庫 -->
+    <!-- 載入 Tailwind CSS 函式庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引用樣式表 -->
+    
+    <!-- Tailwind 配置必須放在 <head> 區塊，以確保樣式正確載入 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#6366F1', // Indigo 500
+                        'secondary': '#FBBF24', // Amber 400 (Points)
+                        'accent': '#2DD4BF', // Teal 400 (New playful accent)
+                        'pink-light': '#FDBA74', // Orange 300 (Softer, kid-friendly)
+                        'success': '#10B981', // Emerald 500
+                        'danger': '#EF4444', // Red 500
+                        'bg-light': '#F3F4F6', // Gray 100
+                    },
+                    borderRadius: {
+                        'xl': '0.75rem',
+                        '2xl': '1rem',
+                        '3xl': '1.5rem', // Bubbly feel
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- 引用自定義樣式表 -->
     <link rel="stylesheet" href="style.css">
-    <!-- Tailwind 配置將移至 style.css，但必須保留此 script 區塊用於載入 -->
-    <script src="script.js" type="module"></script>
+    
 </head>
 <body class="flex justify-center p-0 sm:p-4 page-background">
 
