@@ -277,55 +277,65 @@ export async function initPage(pageRenderFunc, pageViewName) {
     const loadingScreen = document.getElementById('loading-screen');
     const content = document.getElementById('content');
 
-    try {
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
+   // js/base.js (initPage 函式修正)
 
-        // 立即嘗試匿名登入
-        await signInAnonymously(auth);
+// ... (initPage 函式開頭不變) ...
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                state.isAuthReady = true;
+try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+    
+    console.log("[Base] App initialized. Attempting anonymous sign-in...");
+    // 立即嘗試匿名登入 (這是非同步操作)
+    await signInAnonymously(auth);
 
-                await preloadInitialData();
+    onAuthStateChanged(auth, async (user) => {
+        const loadingScreen = document.getElementById('loading-screen');
+        const content = document.getElementById('content');
+
+        if (user) {
+            userId = user.uid;
+            state.isAuthReady = true;
+            console.log(`[Base] Auth Success. User ID: ${userId}`);
+
+            await preloadInitialData();
+            
+            // 設置監聽器
+            setupListeners(pageViewName); 
+
+            // 🌟 單次檢查：確認是否需要強制跳轉到設定頁面
+            // 使用延遲來確保第一次 onSnapshot (即時同步) 有機會完成。
+            setTimeout(() => {
+                const hasKids = state.kids.length > 0;
+
+                if (!hasKids && pageViewName !== 'settings') {
+                    console.log("[Base] No kids found. Redirecting to settings.");
+                    window.location.replace('settings.html');
+                    return; 
+                }
                 
-                // 必須在設置監聽器之前，確保 Kids 數據有機會被載入。
-                // 這裡我們利用 onSnapshot 會立即觸發一次的特性。
+                // 初始頁面渲染
+                if (loadingScreen) loadingScreen.classList.add('hidden');
+                if (content) content.classList.remove('hidden');
+                console.log(`[Base] Initial render complete for view: ${pageViewName}`);
                 
-                // 設置監聽器
-                setupListeners(pageViewName); 
+            }, 300); // 增加延遲到 300ms 確保數據同步
 
-                // 🌟 單次檢查：確認是否需要強制跳轉到設定頁面
-                // 由於 onSnapshot 會立即觸發並更新 state.kids，我們使用延遲來確保第一次數據同步。
-                setTimeout(() => {
-                    if (state.kids.length === 0 && pageViewName !== 'settings') {
-                        // 首次載入且沒有小朋友，強制跳轉到設定頁面
-                        window.location.replace('settings.html');
-                        return; 
-                    }
-                    
-                    // 初始頁面渲染
-                    if (loadingScreen) loadingScreen.classList.add('hidden');
-                    if (content) content.classList.remove('hidden');
-                    // 首次載入時觸發頁面渲染 (由 setupListeners 內的 updateUI 處理)
-                    // renderCallback(); // 這裡不需要手動呼叫，因為 setupListeners 會立即觸發 updateUI
-                }, 200); // 給數據同步一個小的延遲時間
-                
-            } else {
-                // Auth Failed UI
-                if (loadingScreen) loadingScreen.innerHTML = `<p class="text-xl font-bold text-danger">連線失敗：請檢查 Firebase 匿名登入。</p>`;
-            }
-        });
-    } catch (error) {
-        console.error("App Initialization Fatal Error:", error);
-        if (loadingScreen) loadingScreen.innerHTML = `
-            <div class="text-center p-8 bg-white rounded-xl shadow-lg">
-                <p class="text-xl font-bold text-danger">應用程式初始化失敗 (App Error)</p>
-                <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
-            </div>
-        `;
-    }
+        } else {
+            // Auth Failed UI (如果匿名登入失敗，會觸發這裡)
+            console.error("[Base] Firebase Authentication Failed. User object is null.");
+            if (loadingScreen) loadingScreen.innerHTML = `<p class="text-xl font-bold text-danger">連線失敗：請檢查 Firebase 匿名登入設定。</p>`;
+        }
+    });
+} catch (error) {
+    console.error("App Initialization Fatal Error:", error);
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) loadingScreen.innerHTML = `
+        <div class="text-center p-8 bg-white rounded-xl shadow-lg">
+            <p class="text-xl font-bold text-danger">應用程式初始化失敗 (Fatal Error)</p>
+            <p class="mt-2 text-sm text-gray-700">錯誤訊息: ${error.message}</p>
+        </div>
+    `;
+}
 }
