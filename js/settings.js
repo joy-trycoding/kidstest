@@ -286,6 +286,5 @@ window.saveRewardForm = (rewardId) => {
 window.saveRewardForm = window.saveRewardForm;
 
 
-window.onload = () => {
-    initPage(renderSettingsContent, 'settings');
-};
+// 🚨 關鍵修正：移除 window.onload，在模組載入時直接啟動
+initPage(renderSettingsContent, 'settings');

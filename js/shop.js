@@ -60,16 +60,19 @@ window.redeemReward = async (rewardId, cost) => {
 
     const reward = state.rewards.find(r => r.id === rewardId);
     
+    // 修正：showModal 現在被模組匯入了，但 HTML 呼叫需要確保它在 window.confirmRedemption 之前被呼叫
     showModal(
         '確認兌換',
         `<p class="text-lg text-gray-700">您確定要用 <span class="text-secondary font-bold">${cost} 點</span> 兌換「${reward.name}」嗎？</p>`,
-        `<button onclick="confirmRedemption('${rewardId}', ${cost})" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定兌換</button>`
+        `確定兌換`,
+        // 將 confirmRedemption 邏輯直接放入 onConfirm 回呼中，避免 HTML 再次呼叫
+        () => confirmRedemption(rewardId, cost) 
     );
 };
 window.redeemReward = window.redeemReward; 
 
 /** 確認兌換 (導出給 Modal 呼叫) */
-window.confirmRedemption = async (rewardId, cost) => {
+const confirmRedemption = async (rewardId, cost) => {
     closeModal();
     const kidId = state.currentKidId;
     const kidRef = getKidDocRef(kidId);
@@ -87,8 +90,7 @@ window.confirmRedemption = async (rewardId, cost) => {
         showToast(`兌換失敗: ${error.message}`, 'danger');
     }
 }
-window.confirmRedemption = window.confirmRedemption; 
+window.confirmRedemption = confirmRedemption; // 導出給 Modal 呼叫 (雖然我們用 onConfirm 避免了)
 
-window.onload = () => {
-    initPage(renderShopContent, 'shop');
-};
+// 🚨 關鍵修正：移除 window.onload，在模組載入時直接啟動
+initPage(renderShopContent, 'shop');

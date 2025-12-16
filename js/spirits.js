@@ -9,7 +9,7 @@ function getRandomSpirit() {
         { name: "火焰小精靈", icon: "🔥" },
         { name: "水滴小精靈", icon: "💧" },
         { name: "大地小精靈", icon: "🌿" },
-        { name: "閃電小精靈", icon: "⚡" },
+        { name: "閃電小精精", icon: "⚡" },
         { name: "彩虹小精靈", icon: "🌈" },
         { name: "月光小精靈", icon: "🌙" },
     ];
@@ -108,7 +108,9 @@ window.hatchSpirit = async () => {
                     <label for="customName" class="block text-gray-700">為牠取個可愛的名字吧：</label>
                     <input type="text" id="customName" placeholder="輸入名字" class="w-full mt-1 p-2 border border-gray-300 rounded-lg">
                 </div>`,
-                `<button onclick="nameSpirit('${newSpirit.id}')" class="px-4 py-2 bg-success text-white rounded-lg hover:bg-green-600">確定命名</button>`
+                `確定命名`,
+                // 將命名邏輯直接放入 onConfirm 回呼中
+                () => nameSpirit(newSpirit.id)
             );
         } else {
             showModal(
@@ -118,7 +120,8 @@ window.hatchSpirit = async () => {
                     <p class="text-xl font-semibold text-danger">哎呀！這次沒有成功孵化。</p>
                     <p class="text-gray-600 mt-2">別灰心，再努力累積點數吧！</p>
                 </div>`,
-                `<button onclick="closeModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600">我知道了</button>`
+                `我知道了`,
+                closeModal
             );
         }
     } catch (error) {
@@ -129,7 +132,7 @@ window.hatchSpirit = async () => {
 window.hatchSpirit = window.hatchSpirit; 
 
 /** 命名精靈 (導出給 Modal 呼叫) */
-window.nameSpirit = async (spiritId) => {
+const nameSpirit = async (spiritId) => {
     const customName = document.getElementById('customName').value.trim();
     if (!customName) {
         return showToast("名字不能為空！", 'danger');
@@ -152,8 +155,7 @@ window.nameSpirit = async (spiritId) => {
         showToast(`命名失敗: ${error.message}`, 'danger');
     }
 };
-window.nameSpirit = window.nameSpirit;
+window.nameSpirit = nameSpirit;
 
-window.onload = () => {
-    initPage(renderSpiritsContent, 'spirits');
-};
+// 🚨 關鍵修正：移除 window.onload，在模組載入時直接啟動
+initPage(renderSpiritsContent, 'spirits');
